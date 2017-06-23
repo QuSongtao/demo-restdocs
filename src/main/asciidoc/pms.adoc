@@ -1,0 +1,83 @@
+= 生产应用(PMS)技术总纲
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: 生产应用(PMS)技术总纲
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 简介
+生产应用(PMS)技术方案,是生产应用完整的实施方法论,包括 *基础环境搭建* 、 *应用API技术手册* 、*系统实施与部署*,其中基础环境包括MYSQL数据库、
+Zookeeper、zkui、redis、kafka、RabbitMQ、nginx的安装和配置手册，应用API技术手册涵盖：前端框架详细介绍、后端基础框架服务、
+标准中心、设备台帐、设备异动、对外接口、路由网关等API。
+
+== 基础环境搭建
+
+[cols="2", options="header"]
+|===
+|基础环境
+|备注信息
+
+|link:ci.html[CI服务器搭建手册]
+|持续集成、持续交互、数据库备份与迁移、GIT分支管理
+
+|link:zk_kafka.html[Zookeeper、Kafka安装与集群配置]
+|Zookeeper与kafka安装、集群配置、ZkUI安装与配置
+
+|link:rabbitmq.html[RabbitMQ安装与配置]
+|RabbitMQ安装与配置
+
+|link:mysql.html[MySQL安装与配置]
+|MySQL安装与配置
+
+|link:redis.html[redis安装与配置]
+|redis安装与配置
+|===
+
+== 应用API手册
+[cols="2", options="header"]
+|===
+|模块API手册
+|备注信息
+
+|link:fe.html[前端技术框架方案]
+|前端框架说明,技术方案说明
+
+|link:be-framework.html[framework-service API]
+|框架组件服务模块API手册
+
+|link:be-sc.html[sc-service API]
+|标准中心服务模块API手册
+
+|link:be-equ.html[equ-service API]
+|设备台帐服务模块API手册
+
+|link:be-echg.html[echg-service API]
+|设备异动服务模块API手册
+
+|link:be-api.html[api-service API]
+|对外接口服务模块API手册
+
+|link:be-gateway.html[gateway-service API]
+|路由网关服务模块API手册
+|===
+
+== 实施与部署
+[cols="2", options="header"]
+|===
+|项目
+|备注信息
+
+|link:deploy.html[实施与部署手册]
+|包括环境配置、（开发、联调、生产）环境前后端部署手册
+|===
+
+

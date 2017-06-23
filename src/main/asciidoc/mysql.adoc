@@ -1,0 +1,128 @@
+= 生产应用(PMS)-MySQL安装和配置手册
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: 生产应用(PMS)-MySQL安装和配置手册
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 服务器
+192.168.1.63,CentOS 7
+
+== MySQL安装过程
+
+=== 下载mysql对应的repo源
+[source,bash]
+----
+wget https://repo.mysql.com//mysql57-community-release-el7-11.noarch.rpm
+----
+
+=== 安装repo源
+[source,bash]
+----
+rpm -ivh mysql57-community-release-el7-11.noarch.rpm
+----
+
+=== 安装MySQL
+[source,bash]
+----
+yum install mysql-server
+----
+
+=== 防火墙配置
+[source,bash]
+----
+firewall-cmd --zone=public --permanent --add-port=3306/tcp
+service firewalld restart
+----
+
+=== 启动MySQL
+[source,bash]
+----
+service mysqld start <1>
+service mysqld stop <2>
+service mysqld restart <3>
+----
+[NOTE]
+====
+<1> 启动MySQL
+<2> 停止MySQL
+<3> 重启MySQL
+====
+
+== 设置数据库参数
+
+=== 设置字符集和数据存储引擎
+[source,bash]
+----
+vim /etc/my.cnf
+[mysql]
+default-character-set=utf8
+
+[mysqld]
+default-storage-engine=INNODB
+character_set_server=utf8
+----
+
+重启服务
+[source,bash]
+----
+service mysqld restart
+----
+
+=== 修改root密码
+[source,bash]
+----
+#初始密码查找
+grep "password" /var/log/mysqld.log
+#登录MySQL
+/usr/bin/mysql -uroot -p
+----
+
+[source,bash]
+----
+#设置密码复杂度级别为最低0
+mysql>set global validate_password_policy=0;
+#设置密码长度最小值值1
+mysql>set global validate_password_length=1;
+#设置root密码
+mysql>SET PASSWORD = PASSWORD('root');
+----
+
+=== 创建数据库
+[source,bash]
+----
+mysql>create database pms;
+mysql>create database pms_his;
+----
+
+=== 创建用户并授权
+[source,bash]
+----
+mysql>CREATE USER 'pms'@'%' IDENTIFIED BY 'Pms@123456';
+mysql>GRANT ALL ON pms.* TO 'pms'@'%';
+mysql>GRANT ALL ON pms_his.* TO 'pms'@'%';
+mysql>update user set host='%' where user='root';
+----
+
+=== 常用一:备份数据库脚本
+[source,bash]
+----
+/usr/bin/mysqldump -uroot -proot --default-character-set=utf8 -R --databases pms > /var/lib/mysql/pms_`date +%Y%m%d`.sql
+----
+
+=== 常用二:恢复数据库脚本
+[source,bash]
+----
+/usr/bin/mysql -uroot -proot --default-character-set=utf8 pms < /var/lib/mysql/pms_*.sql
+----
+
+== 完毕

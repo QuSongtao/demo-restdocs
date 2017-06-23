@@ -1,0 +1,104 @@
+= 生产应用(PMS)-RabbitMQ安装和配置手册
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: 生产应用(PMS)-RabbitMQ安装和配置手册
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 服务器
+192.168.1.63,CentOS 7
+
+== 安装wget
+[source,bash]
+----
+yum install wget
+----
+
+== 安装JDK
+[source,bash]
+----
+yum install java-1.8.0-openjdk  java-1.8.0-openjdk-devel
+----
+
+== 安装RabbitMQ
+
+=== 安装epel-release-7-9
+[source,bash]
+----
+wget http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm
+rpm -Uvh epel-release-7-9.noarch.rpm
+----
+
+=== 安装erlang
+[source,bash]
+----
+yum install erlang
+----
+
+=== 安装RabbitMQ-3.6.10
+[source,bash]
+----
+# 下载安装包
+wget http://www.rabbitmq.com/releases/rabbitmq-server/v3.6.10/rabbitmq-server-3.6.10-1.el7.noarch.rpm
+# 安装RabbitMQ
+yum install rabbitmq-server-3.6.10-1.el7.noarch.rpm
+----
+
+=== 启动RabbitMQ
+[source,bash]
+----
+service rabbitmq-server start
+----
+
+=== 防火墙配置
+[source,bash]
+----
+firewall-cmd --zone=public --permanent --add-port=15672/tcp
+service firewalld restart
+----
+
+=== web管理插件启用
+[source,bash]
+----
+rabbitmq-plugins enable rabbitmq_management
+----
+
+=== rabbitmqctl基础配置
+[source,bash]
+----
+rabbitmqctl add_user admin 123456 #<1>
+rabbitmqctl set_user_tags admin administrator #<2>
+rabbitmqctl add_vhost pms-vhost #<3>
+rabbitmqctl set_permissions -p "pms-vhost" admin ".*" ".*" ".*" #<4>
+rabbitmqctl set_permissions -p "pms-vhost" guest ".*" ".*" ".*" #<5>
+#<6>
+# rabbitmqctl eval 'rabbit_exchange:declare({resource, <<"pms-vhost">>, exchange, <<"test-topic">>}, topic, true, false, false, []).'
+#<7>
+rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"pms-vhost">>, queue, <<"gis.pms.queue">>}, true, false, [], none).'
+rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"pms-vhost">>, queue, <<"pms.gis.queue">>}, true, false, [], none).'
+#<8>
+rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"pms-vhost">>, exchange, <<"amq.direct">>}, <<"gis.pms.route">>, {resource, <<"pms-vhost">>, queue, <<"gis.pms.queue">>}, []}).'
+rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"pms-vhost">>, exchange, <<"amq.direct">>}, <<"pms.gis.route">>, {resource, <<"pms-vhost">>, queue, <<"pms.gis.queue">>}, []}).'
+----
+[NOTE]
+====
+<1> 创建用户admin
+<2> 设置admin权限
+<3> 创建vhost
+<4> 设置admin对vhost的权限
+<5> 设置guest用户对vhost的权限
+<6> 创建exchange,这里利用vhost自带的exchange
+<7> 创建queue(gis.pms.queue和pms.gis.queue)
+<8> 绑定exchange和queue
+====
+
+== 完毕

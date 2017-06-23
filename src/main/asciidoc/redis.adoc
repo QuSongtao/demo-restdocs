@@ -1,0 +1,86 @@
+= 生产应用(PMS)-Redis安装和配置手册
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: 生产应用(PMS)-Redis安装和配置手册
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 服务器
+192.168.1.63,CentOS 7
+
+== redis安装
+
+=== 安装epel-release-7-9
+[source,bash]
+----
+$ wget http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm
+$ rpm -Uvh epel-release-7-9.noarch.rpm
+----
+
+=== 安装redis
+[source,bash]
+----
+yum install redis
+----
+
+=== 查看redis版本
+[source,bash]
+----
+rpm -qa |grep redis
+----
+
+=== 查看redis安装目录
+[source,bash]
+----
+rpm -ql redis
+----
+[NOTE]
+====
+redis的配置文件是/etc/redis.conf，数据文件dump.rdb存放到/var/lib/redis/目录下，日志文件为 /var/log/redis/redis.log
+====
+
+=== 启动redis
+[source,bash]
+----
+service redis start  #<1>
+service redis stop   #<2>
+service redis restart#<3>
+service redis status #<4>
+----
+[NOTE]
+====
+<1> 启动redis
+<2> 停止redis
+<3> 重启redis
+<4> 查看redis状态
+====
+
+=== 防火墙配置
+[source,bash]
+----
+firewall-cmd --zone=public --permanent --add-port=6379/tcp
+service firewalld restart
+----
+
+=== redis-cli连接redis数据库
+[source,bash]
+----
+redis-cli -h 192.168.1.63 -p 6379
+
+>set
+>get
+----
+
+=== 验证
+利用RedisDesktopManager图形客户端验证redis连接和key-value读写
+
+== 完毕

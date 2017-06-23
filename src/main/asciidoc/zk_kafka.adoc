@@ -1,0 +1,946 @@
+= 生产应用(PMS)-Zookeeper、kafka集群配置手册
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: 生产应用(PMS)-Zookeeper、kafka集群配置手册
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+集群环境配置:
+操作系统选择:Linux RedHat6.5 (2CPU,2G,20G)
+
+    2台机器:
+    192.168.1.61 (Zookeeper1#主机,kafka1#主机,zkui服务器)
+    192.168.1.62 (Zookeeper2#主机,kafka2#主机)
+
+如果使用虚拟机,网络模式选择桥接
+
+== 系统配置
+
+=== 1#主机系统配置
+19.168.1.61上，所有操作使用root用户
+
+==== 安装JDK1.8
+安装JDK1.8及配置环境变量(略)
+
+==== 网络、主机配置
+网络配置
+[source,bash]
+----
+[root@pms01 ~]$ vim /etc/sysconfig/network-scripts/ifcfg-eth0
+
+DEVICE="eth0"
+BOOTPROTO="none"
+HWADDR="00:0C:29:F4:88:78"
+IPV6INIT="yes"
+NM_CONTROLLED="yes"
+ONBOOT="yes"
+TYPE="Ethernet"
+UUID="2ad820ed-2b51-4006-b2cd-63bfd9a256dd"
+IPADDR=192.168.1.61
+NETMASK=255.255.255.0
+GATEWAY=192.168.1.1
+DNS1=61.139.2.69
+DNS2=202.98.96.68
+----
+主机名配置
+[source,bash]
+----
+[root@pms01 ~]$ vim /etc/sysconfig/network
+
+NETWORKING=yes
+HOSTNAME=pms01
+----
+/etc/hosts文件修改
+[source,bash]
+----
+[root@pms01 ~]$ vim /etc/hosts
+
+127.0.0.1   pms01 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.1.61 kafka01 #<1>
+192.168.1.62 kafka02 #<2>
+----
+[NOTE]
+====
+<1> 坑,此处定义kafka集群的1#主机名称
+<2> 坑,此处定义kafka集群的2#主机名称
+====
+防火墙配置
+
+(只针对RedHat系列,不适用CentOS防火墙配置)
+[source,bash]
+----
+[root@pms01 ~]$ vim /etc/sysconfig/iptables
+
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT #<1>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 2181 -j ACCEPT #<2>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 2888 -j ACCEPT #<3>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 3888 -j ACCEPT #<4>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 9090 -j ACCEPT #<5>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 9092 -j ACCEPT #<6>
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+----
+<1> SSH端口
+<2> Zookeeper客户端连接端口
+<3> Zookeeper:该server和集群中的leader交换消息所使用的端口
+<4> Zookeeper:选举leader时所使用的端口 Zookeeper状态两种(leader,follower)主机,从机
+<5> zkUI端口
+<6> kafka端口
+
+重启网络服务
+[source,bash]
+----
+[root@pms01 ~]$ service iptables restart
+----
+重启操作系统
+[source,bash]
+----
+[root@pms01 ~]$ reboot
+----
+
+=== 2#主机系统配置
+19.168.1.62上，所有操作使用root用户
+
+==== 安装JDK1.8
+安装JDK1.8及配置环境变量(略)
+
+==== 网络、主机配置
+网络配置
+[source,bash]
+----
+[root@pms02 ~]$ vim /etc/sysconfig/network-scripts/ifcfg-eth0
+
+DEVICE="eth0"
+BOOTPROTO="none"
+HWADDR="00:0C:29:84:17:4A"
+IPV6INIT="yes"
+NM_CONTROLLED="yes"
+ONBOOT="yes"
+TYPE="Ethernet"
+UUID="a507a46b-5521-4ae1-b505-83bcf561347b"
+IPADDR=192.168.1.62
+NETMASK=255.255.255.0
+GATEWAY=192.168.1.1
+DNS1=61.139.2.69
+DNS2=202.98.96.68
+----
+
+主机名配置
+[source,bash]
+----
+[root@pms02 ~]$ vim /etc/sysconfig/network
+
+NETWORKING=yes
+HOSTNAME=pms02
+----
+
+/etc/hosts文件修改
+[source,bash]
+----
+[root@pms02 ~]$ vim /etc/hosts
+
+127.0.0.1   pms02 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.1.61 kafka01 #<1>
+192.168.1.62 kafka02 #<2>
+----
+
+[NOTE]
+====
+<1> 坑,此处定义kafka集群的1#主机名称
+<2> 坑,此处定义kafka集群的2#主机名称
+====
+
+修改防火墙
+
+(只针对RedHat系列,不适用CentOS防火墙配置)
+[source,bash]
+----
+[root@pms02 ~]$ vim /etc/sysconfig/iptables
+
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT #<1>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 2181 -j ACCEPT #<2>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 2888 -j ACCEPT #<3>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 3888 -j ACCEPT #<4>
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 9092 -j ACCEPT #<5>
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+----
+<1> SSH端口
+<2> Zookeeper客户端连接端口
+<3> Zookeeper:该server和集群中的leader交换消息所使用的端口
+<4> Zookeeper:选举leader时所使用的端口 Zookeeper状态两种(leader,follower)主机,从机
+<5> kafka端口
+
+重启网络服务
+[source,bash]
+----
+[root@pms02 ~]$ service iptables restart
+----
+重启操作系统
+[source,bash]
+----
+[root@pms02 ~]$ reboot
+----
+
+== 下载安装包
+
+- Zookeeper版本选择3.4.9,下载地址 http://apache.fayea.com/zookeeper/[zookeeper-3.4.9.tar.gz]
+- Kafka版本选择kafka_2.11-0.10.2.0,下载地址 http://mirrors.tuna.tsinghua.edu.cn/apache/kafka/0.10.2.0/kafka_2.11-0.10.2.0.tgz[kafka_2.11-0.10.2.0.tgz]
+- zkUI,网络上搜索jar包下载,版本无要求,下载地址(需要csdn账号,自行注册一个) http://download.csdn.net/detail/lirenzuo/9640272?locationNum=3&fps=1[zkui-2.0-SNAPSHOT-jar-with-dependencies.jar]
+
+[NOTE]
+====
+另外zkui可以通过最新源代码用maven编译成jar文件,zkUI源代码地址:https://github.com/QuSongtao/zkui,笔者直接用网上编译完成的jar文件.
+====
+
+拷贝安装介质包(zookeeper-3.4.9.tar.gz,kafka_2.11-0.10.2.0.tgz,zkui-2.0-SNAPSHOT-jar-with-dependencies.jar)到192.168.1.61和192.168.1.62上
+
+== 安装和配置Zookeeper集群
+
+=== 1#主机
+
+==== 解压文件并调整目录
+[source,bash]
+----
+[root@pms01 ~]$ tar -zxvf zookeeper-3.4.9.tar.gz
+[root@pms01 ~]$ mv zookeeper-3.4.9 /usr/local/
+[root@pms01 ~]$ cd /usr/local/zookeeper-3.4.9/
+----
+
+日志及数据目录指定,新建两个目录data和logs
+[source,bash]
+----
+[root@pms01 zookeeper-3.4.9]$ mkdir data logs
+----
+
+==== 配置zoo.cfg
+将conf目录下的示例配置文档复制一份命名为zoo.cfg,(为什么:因为在bin/zkEnv.sh里面配置文件名称被默认指定为:zoo.cfg,在zkServer.sh start时就不需要再指定配置文件)
+[source,bash]
+----
+[root@pms01 zookeeper-3.4.9]$ cp conf/zoo_sample.cfg conf/zoo.cfg
+[root@pms01 zookeeper-3.4.9]$ vim conf/zoo.cfg
+
+# The number of milliseconds of each tick
+tickTime=2000
+# The number of ticks that the initial
+# synchronization phase can take
+initLimit=10
+# The number of ticks that can pass between
+# sending a request and getting an acknowledgement
+syncLimit=5
+# the directory where the snapshot is stored.
+# do not use /tmp for storage, /tmp here is just
+# example sakes.
+dataDir=/usr/local/zookeeper-3.4.9/data
+dataLogDir=/usr/local/zookeeper-3.4.9/logs
+# the port at which the clients will connect
+clientPort=2181 #<1>
+server.1=192.168.1.61:2888:3888 #<2>
+server.2=192.168.1.62:2888:3888 #<3>
+# the maximum number of client connections.
+# increase this if you need to handle more clients
+maxClientCnxns=100 #<4>
+#
+# Be sure to read the maintenance section of the
+# administrator guide before turning on autopurge.
+#
+# http://zookeeper.apache.org/doc/current/zookeeperAdmin.html#sc_maintenance
+#
+# The number of snapshots to retain in dataDir
+#autopurge.snapRetainCount=3
+# Purge task interval in hours
+# Set to "0" to disable auto purge feature
+#autopurge.purgeInterval=1
+----
+[NOTE]
+====
+<1> 客户端连接端口
+<2> 集群环境1#主机的server配置,server.1中的1为server编号,在集群中唯一,单机环境注释掉该行
+<3> 集群环境2#主机的server配置,server.2中的2为server编号,在集群中唯一,单机环境注释掉该行
+<4> Zookeeper客户端最大连接数
+====
+
+==== 配置myid
+[source,bash]
+----
+[root@pms01 zookeeper-3.4.9]$ echo "1" > data/myid
+----
+[NOTE]
+====
+myid中的值对应zoo.cfg配置文件中的server.1,在集群中唯一,在192.168.1.62中则对应为2
+====
+
+修改/etc/profile,在文件最后增加Zookeeper的相关配置,如下:
+[source,bash]
+----
+[root@pms01 zookeeper-3.4.9]$ vim /etc/profile
+
+export ZOOKEEPER_HOME=/usr/local/zookeeper-3.4.9
+export PATH=$ZOOKEEPER_HOME/bin:$JAVA_HOME/bin:$PATH
+----
+保存退出,生效配置:
+[source,bash]
+----
+[root@pms01 zookeeper-3.4.9]$ source /etc/profile
+----
+
+=== 2#主机
+
+==== 解压文件并调整目录
+[source,bash]
+----
+[root@pms02 ~]$ tar -zxvf zookeeper-3.4.9.tar.gz
+[root@pms02 ~]$ mv zookeeper-3.4.9 /usr/local/
+[root@pms02 ~]$ cd /usr/local/zookeeper-3.4.9/
+----
+日志及数据目录指定,新建两个目录data和logs
+[source,bash]
+----
+[root@pms02 zookeeper-3.4.9]$ mkdir data logs
+----
+
+==== 配置zoo.cfg
+将conf目录下的示例配置文档复制一份命名为zoo.cfg,(为什么:因为在bin/zkEnv.sh里面配置文件名称被默认指定为:zoo.cfg.在zkServer.sh start时就不需要再指定配置文件)
+[source,bash]
+----
+[root@pms02 zookeeper-3.4.9]$ cp conf/zoo_sample.cfg conf/zoo.cfg
+[root@pms02 zookeeper-3.4.9]$ vim conf/zoo.cfg
+
+# The number of milliseconds of each tick
+tickTime=2000
+# The number of ticks that the initial
+# synchronization phase can take
+initLimit=10
+# The number of ticks that can pass between
+# sending a request and getting an acknowledgement
+syncLimit=5
+# the directory where the snapshot is stored.
+# do not use /tmp for storage, /tmp here is just
+# example sakes.
+dataDir=/usr/local/zookeeper-3.4.9/data
+dataLogDir=/usr/local/zookeeper-3.4.9/logs
+# the port at which the clients will connect
+clientPort=2181 #<1>
+server.1=192.168.1.61:2888:3888 #<2>
+server.2=192.168.1.62:2888:3888 #<3>
+# the maximum number of client connections.
+# increase this if you need to handle more clients
+maxClientCnxns=100 #<4>
+#
+# Be sure to read the maintenance section of the
+# administrator guide before turning on autopurge.
+#
+# http://zookeeper.apache.org/doc/current/zookeeperAdmin.html#sc_maintenance
+#
+# The number of snapshots to retain in dataDir
+#autopurge.snapRetainCount=3
+# Purge task interval in hours
+# Set to "0" to disable auto purge feature
+#autopurge.purgeInterval=1
+----
+[NOTE]
+====
+<1> 客户端连接端口
+<2> 集群环境1#主机的server配置,server.1中的1为server编号,在集群中唯一,单机环境注释掉该行
+<3> 集群环境2#主机的server配置,server.2中的2为server编号,在集群中唯一,单机环境注释掉该行
+<4> Zookeeper客户端最大连接数
+====
+
+==== 配置myid
+[source,bash]
+----
+[root@pms02 zookeeper-3.4.9]$ echo "2" > data/myid
+----
+[NOTE]
+====
+myid中的值对应zoo.cfg配置文件中的server.2,在集群中唯一,在192.168.1.61中则对应为1
+====
+
+修改/etc/profile,在文件最后增加Zookeeper的相关配置,如下:
+[source,bash]
+----
+[root@pms02 zookeeper-3.4.9]$ vim /etc/profile
+
+export ZOOKEEPER_HOME=/usr/local/zookeeper-3.4.9
+export PATH=$ZOOKEEPER_HOME/bin:$JAVA_HOME/bin:$PATH
+----
+保存退出,生效配置:
+[source,bash]
+----
+[root@pms02 zookeeper-3.4.9]$ source /etc/profile
+----
+
+到此集群配置完成
+
+=== 验证集群
+
+==== 启动Zookeeper
+在192.168.1.61上启动zkServer
+[source,bash]
+----
+[root@pms01 ~]$ zkServer.sh start
+----
+
+在192.168.1.62上启动zkServer
+[source,bash]
+----
+[root@pms02 ~]$ zkServer.sh start
+----
+zkServer常用密令:
+
+    启动ZK服务: zkServer.sh start
+    查看ZK状态: zkServer.sh status
+    停止ZK服务: zkServer.sh stop
+    重启ZK服务: zkServer.sh restart
+
+[NOTE]
+====
+注:如果只启动集群中的一个zk,则会在日志中报错无法解析主机,不要慌,正常报错,在另外的zkServer启动后就不会报错了
+====
+
+==== 本地创建节点
+在192.168.1.61上运行zkCli.sh,默认连接到192.168.1.61的Zookeeper
+[source,bash]
+----
+[root@pms01 ~]$ zkCli.sh
+[zk: localhost:2181(CONNECTED) 0] create /configtest "testzk" #创建一个新的节点并设置关联值
+----
+
+==== 集群上获取节点信息
+在192.168.1.62上运行zkCli.sh,默认连接到192.168.1.62的Zookeeper,获取configtest的信息
+[source,bash]
+----
+[root@pms01 ~]$ zkCli.sh
+[zk: localhost:2181(CONNECTED) 0] get /configtest
+----
+输出如下:
+
+    testzk
+    cZxid = 0xc000000a6
+    ctime = Sun Jun 18 23:27:01 PDT 2017
+    mZxid = 0xc000000a6
+    mtime = Sun Jun 18 23:27:01 PDT 2017
+    pZxid = 0xc000000a6
+    cversion = 0
+    dataVersion = 0
+    aclVersion = 0
+    ephemeralOwner = 0x0
+    dataLength = 6
+    numChildren = 0
+
+==== 删除节点
+[source,bash]
+----
+[zk: localhost:2181(CONNECTED) 0] delete /configtest
+----
+
+== 安装zkui
+目的让Zookeeper可视化,图形界面管理,zkui只安装在192.168.1.61上
+
+=== 目录调整
+[source,bash]
+----
+[root@pms01 ~]$ mkdir /usr/local/zkui-2.0
+[root@pms01 ~]$ mv zkui-2.0-SNAPSHOT-jar-with-dependencies.jar /usr/local/zkui-2.0/zkui-2.0.jar
+----
+
+[NOTE]
+====
+将zkui的jar包移动到该目录并重新命名为zkui-2.0.jar(太长了,看着不舒服)
+====
+
+=== 配置config.cfg
+[NOTE]
+====
+(如果config.cfg文件不存在,可手动创建一个然后把下面内容粘贴进去,注意文件名称要一致)
+====
+[source,bash]
+----
+[root@pms01 ~]$ cd /usr/local/zkui-2.0
+[root@pms01 ~]$ vim config.cfg
+
+#Server Port
+serverPort=9090 #<1>
+#Comma seperated list of all the zookeeper servers
+zkServer=192.168.1.61:2181,192.168.1.62.2181 #<2>
+#Http path of the repository. Ignore if you dont intent to upload files from repository.
+scmRepo=http://myserver.com/@rev1=
+#Path appended to the repo url. Ignore if you dont intent to upload files from repository.
+scmRepoPath=//appconfig.txt
+#if set to true then userSet is used for authentication, else ldap authentication is used.
+ldapAuth=false
+ldapDomain=mycompany,mydomain
+#ldap authentication url. Ignore if using file based authentication.
+ldapUrl=ldap://<ldap_host>:<ldap_port>/dc=mycom,dc=com
+#Specific roles for ldap authenticated users. Ignore if using file based authentication.
+ldapRoleSet={"users": [{ "username":"domain\\user1" , "role": "ADMIN" }]}
+userSet = {"users": [{ "username":"admin" , "password":"manager","role": "ADMIN" },{ "username":"appconfig" , "password":"appconfig","role": "USER" }]} #<3>
+#Set to prod in production and dev in local. Setting to dev will clear history each time.
+env=prod
+jdbcClass=org.h2.Driver
+jdbcUrl=jdbc:h2:zkui
+jdbcUser=root
+jdbcPwd=manager
+#If you want to use mysql db to store history then comment the h2 db section.
+#jdbcClass=com.mysql.jdbc.Driver
+#jdbcUrl=jdbc:mysql://localhost:3306/zkui
+#jdbcUser=root
+#jdbcPwd=manager
+loginMessage=Please login using admin/manager or appconfig/appconfig.
+#session timeout 5 mins/300 secs.
+sessionTimeout=300
+#Default 5 seconds to keep short lived zk sessions. If you have large data then the read will take more than 30 seconds so increase this accordingly.
+#A bigger zkSessionTimeout means the connection will be held longer and resource consumption will be high.
+zkSessionTimeout=5
+#Block PWD exposure over rest call.
+blockPwdOverRest=false
+#ignore rest of the props below if https=false.
+https=false
+keystoreFile=/home/user/keystore.jks
+keystorePwd=password
+keystoreManagerPwd=password
+# The default ACL to use for all creation of nodes. If left blank, then all nodes will be universally accessible
+# Permissions are based on single character flags: c (Create), r (read), w (write), d (delete), a (admin), * (all)
+# For example defaultAcl={"acls": [{"scheme":"ip", "id":"192.168.1.192", "perms":"*"}, {"scheme":"ip", id":"192.168.1.0/24", "perms":"r"}]
+defaultAcl=
+# Set X-Forwarded-For to true if zkui is behind a proxy
+X-Forwarded-For=false
+----
+[NOTE]
+====
+<1> zkui的服务端口
+<2> Zookeeper集群地址,多个host:port以逗号隔开
+<3> zkui用户信息
+====
+
+=== 使用zkui
+启动zkui
+[source,bash]
+----
+[root@pms01 zkui-2.0]$ nohup java -jar -Xms64m -Xmx128m zkui-2.0.jar &
+----
+[NOTE]
+====
+已做成sh脚本,/usr/local/zkui-2.0/zkui.sh
+====
+
+在浏览器中访问: http://192.168.1.61:9090
+
+    只读用户:appconfig
+    管理用户:admin
+
+== 安装和配置kafka集群
+
+kafka的安装和验证比Zookeeper要复杂,不同的版本配置有差异,以下以持 `kafka_2.11-0.10.2.0` 为例安装和配置集群,kafka本身依赖Zookeeper,虽然在安装包中已内置了Zookeeper,直接无视,必须利用外部的Zookeeper集群环境(原因是不想让服务器上启动好几个Zookeeper,还有就是不爽)
+
+=== 1#主机
+
+==== 解压并调整目录
+[source,bash]
+----
+[root@pms01 ~]$ tar -zxf kafka_2.11-0.10.2.0.tgz
+[root@pms01 ~]$ mv kafka_2.11-0.10.2.0 /usr/local/
+[root@pms01 ~]$ cd /usr/local/kafka_2.11-0.10.2.0
+[root@pms01 kafka_2.11-0.10.2.0]$ mkdir logs data #<1>
+----
+<1> 新建2个目录,存放日志和数据
+
+==== 配置broker
+(重要环节,这部分配置直接影响集群的成功)
+[source,bash]
+----
+[root@pms01 kafka_2.11-0.10.2.0]$ vim config/server.properties
+
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# see kafka.server.KafkaConfig for additional details and defaults
+
+############################# Server Basics #############################
+
+# The id of the broker. This must be set to a unique integer for each broker.
+broker.id=0 #<1>
+
+# Switch to enable topic deletion or not, default value is false
+delete.topic.enable=true #<2>
+
+############################# Socket Server Settings #############################
+
+# The address the socket server listens on. It will get the value returned from
+# java.net.InetAddress.getCanonicalHostName() if not configured.
+#   FORMAT:
+#     listeners = listener_name://host_name:port
+#   EXAMPLE:
+#     listeners = PLAINTEXT://your.host.name:9092
+#listeners=PLAINTEXT://0.0.0.0:9092
+# Hostname and port the broker will advertise to producers and consumers. If not set,
+# it uses the value for "listeners" if configured.  Otherwise, it will use the value
+# returned from java.net.InetAddress.getCanonicalHostName().
+advertised.listeners=PLAINTEXT://kafka01:9092 #<3>
+
+# Maps listener names to security protocols, the default is for them to be the same. See the config documentation for more details
+#listener.security.protocol.map=PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+
+# The number of threads handling network requests
+num.network.threads=3
+
+# The number of threads doing disk I/O
+num.io.threads=8
+
+# The send buffer (SO_SNDBUF) used by the socket server
+socket.send.buffer.bytes=102400
+
+# The receive buffer (SO_RCVBUF) used by the socket server
+socket.receive.buffer.bytes=102400
+
+# The maximum size of a request that the socket server will accept (protection against OOM)
+socket.request.max.bytes=104857600
+
+
+############################# Log Basics #############################
+
+# A comma seperated list of directories under which to store log files
+log.dirs=/usr/local/kafka_2.11-0.10.2.0/logs #<4>
+
+# The default number of log partitions per topic. More partitions allow greater
+# parallelism for consumption, but this will also result in more files across
+# the brokers.
+num.partitions=1
+
+# The number of threads per data directory to be used for log recovery at startup and flushing at shutdown.
+# This value is recommended to be increased for installations with data dirs located in RAID array.
+num.recovery.threads.per.data.dir=1
+
+############################# Log Flush Policy #############################
+
+# Messages are immediately written to the filesystem but by default we only fsync() to sync
+# the OS cache lazily. The following configurations control the flush of data to disk.
+# There are a few important trade-offs here:
+#    1. Durability: Unflushed data may be lost if you are not using replication.
+#    2. Latency: Very large flush intervals may lead to latency spikes when the flush does occur as there will be a lot of data to flush.
+#    3. Throughput: The flush is generally the most expensive operation, and a small flush interval may lead to exceessive seeks.
+# The settings below allow one to configure the flush policy to flush data after a period of time or
+# every N messages (or both). This can be done globally and overridden on a per-topic basis.
+
+# The number of messages to accept before forcing a flush of data to disk
+#log.flush.interval.messages=10000
+
+# The maximum amount of time a message can sit in a log before we force a flush
+#log.flush.interval.ms=1000
+
+############################# Log Retention Policy #############################
+
+# The following configurations control the disposal of log segments. The policy can
+# be set to delete segments after a period of time, or after a given size has accumulated.
+# A segment will be deleted whenever *either* of these criteria are met. Deletion always happens
+# from the end of the log.
+
+# The minimum age of a log file to be eligible for deletion due to age
+log.retention.hours=168
+
+# A size-based retention policy for logs. Segments are pruned from the log as long as the remaining
+# segments don't drop below log.retention.bytes. Functions independently of log.retention.hours.
+#log.retention.bytes=1073741824
+
+# The maximum size of a log segment file. When this size is reached a new log segment will be created.
+log.segment.bytes=1073741824
+
+# The interval at which log segments are checked to see if they can be deleted according
+# to the retention policies
+log.retention.check.interval.ms=300000
+
+############################# Zookeeper #############################
+
+# Zookeeper connection string (see zookeeper docs for details).
+# This is a comma separated host:port pairs, each corresponding to a zk
+# server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002".
+# You can also append an optional chroot string to the urls to specify the
+# root directory for all kafka znodes.
+zookeeper.connect=192.168.1.61:2181,192.168.1.62:2181 #<5>
+
+# Timeout in ms for connecting to zookeeper
+zookeeper.connection.timeout.ms=6000
+----
+[NOTE]
+====
+<1> broker.id 集群中唯一 192.168.1.61中定义为0,192.168.1.62中定义为1
+<2> 允许删除topic 设置为true
+<3> advertised.listeners=PLAINTEXT://kafka01:9092 这是新版本集群搭建中的坑,这里配置不正确会在消息读\写时出现Error while fetching metadata with correlation id 1 : {TRAIL_TOPIC=LEADER_NOT_AVAILABLE} (org.apache.kafka.clients.NetworkClient)
+	(见第一节/etc/hosts配置)需在/etc/hosts中配置  192.168.1.61 kafka01和192.168.1.62 kafka02,然后在advertised.listeners配置项中把主机名kafka01引进来,集群中的主机都需要设置/etc/hosts
+<4> log.dirs=/usr/local/kafka_2.11-0.10.2.0/logs 配置日志存放路径
+<5> 配置Zookeeper连接,多个host:port用逗号隔开
+====
+
+其它的配置项采用默认
+
+
+=== 2#主机
+
+==== 解压并调整目录
+[source,bash]
+----
+[root@pms02 ~]$ tar -zxf kafka_2.11-0.10.2.0.tgz
+[root@pms02 ~]$ mv kafka_2.11-0.10.2.0 /usr/local/
+[root@pms02 ~]$ cd /usr/local/kafka_2.11-0.10.2.0
+[root@pms02 kafka_2.11-0.10.2.0]$ mkdir logs data #<1>
+----
+<1> 新建2个目录,存放日志和数据
+
+==== 配置broker
+(重要环节,这部分配置直接影响集群的成功)
+[source,bash]
+----
+[root@pms02 kafka_2.11-0.10.2.0]$ vim config/server.properties
+
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# see kafka.server.KafkaConfig for additional details and defaults
+
+############################# Server Basics #############################
+
+# The id of the broker. This must be set to a unique integer for each broker.
+broker.id=1 #<1>
+
+# Switch to enable topic deletion or not, default value is false
+delete.topic.enable=true #<2>
+
+############################# Socket Server Settings #############################
+
+# The address the socket server listens on. It will get the value returned from
+# java.net.InetAddress.getCanonicalHostName() if not configured.
+#   FORMAT:
+#     listeners = listener_name://host_name:port
+#   EXAMPLE:
+#     listeners = PLAINTEXT://your.host.name:9092
+#listeners=PLAINTEXT://0.0.0.0:9092
+# Hostname and port the broker will advertise to producers and consumers. If not set,
+# it uses the value for "listeners" if configured.  Otherwise, it will use the value
+# returned from java.net.InetAddress.getCanonicalHostName().
+advertised.listeners=PLAINTEXT://kafka02:9092 #<3>
+
+# Maps listener names to security protocols, the default is for them to be the same. See the config documentation for more details
+#listener.security.protocol.map=PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+
+# The number of threads handling network requests
+num.network.threads=3
+
+# The number of threads doing disk I/O
+num.io.threads=8
+
+# The send buffer (SO_SNDBUF) used by the socket server
+socket.send.buffer.bytes=102400
+
+# The receive buffer (SO_RCVBUF) used by the socket server
+socket.receive.buffer.bytes=102400
+
+# The maximum size of a request that the socket server will accept (protection against OOM)
+socket.request.max.bytes=104857600
+
+
+############################# Log Basics #############################
+
+# A comma seperated list of directories under which to store log files
+log.dirs=/usr/local/kafka_2.11-0.10.2.0/logs #<4>
+
+# The default number of log partitions per topic. More partitions allow greater
+# parallelism for consumption, but this will also result in more files across
+# the brokers.
+num.partitions=1
+
+# The number of threads per data directory to be used for log recovery at startup and flushing at shutdown.
+# This value is recommended to be increased for installations with data dirs located in RAID array.
+num.recovery.threads.per.data.dir=1
+
+############################# Log Flush Policy #############################
+
+# Messages are immediately written to the filesystem but by default we only fsync() to sync
+# the OS cache lazily. The following configurations control the flush of data to disk.
+# There are a few important trade-offs here:
+#    1. Durability: Unflushed data may be lost if you are not using replication.
+#    2. Latency: Very large flush intervals may lead to latency spikes when the flush does occur as there will be a lot of data to flush.
+#    3. Throughput: The flush is generally the most expensive operation, and a small flush interval may lead to exceessive seeks.
+# The settings below allow one to configure the flush policy to flush data after a period of time or
+# every N messages (or both). This can be done globally and overridden on a per-topic basis.
+
+# The number of messages to accept before forcing a flush of data to disk
+#log.flush.interval.messages=10000
+
+# The maximum amount of time a message can sit in a log before we force a flush
+#log.flush.interval.ms=1000
+
+############################# Log Retention Policy #############################
+
+# The following configurations control the disposal of log segments. The policy can
+# be set to delete segments after a period of time, or after a given size has accumulated.
+# A segment will be deleted whenever *either* of these criteria are met. Deletion always happens
+# from the end of the log.
+
+# The minimum age of a log file to be eligible for deletion due to age
+log.retention.hours=168
+
+# A size-based retention policy for logs. Segments are pruned from the log as long as the remaining
+# segments don't drop below log.retention.bytes. Functions independently of log.retention.hours.
+#log.retention.bytes=1073741824
+
+# The maximum size of a log segment file. When this size is reached a new log segment will be created.
+log.segment.bytes=1073741824
+
+# The interval at which log segments are checked to see if they can be deleted according
+# to the retention policies
+log.retention.check.interval.ms=300000
+
+############################# Zookeeper #############################
+
+# Zookeeper connection string (see zookeeper docs for details).
+# This is a comma separated host:port pairs, each corresponding to a zk
+# server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002".
+# You can also append an optional chroot string to the urls to specify the
+# root directory for all kafka znodes.
+zookeeper.connect=192.168.1.61:2181,192.168.1.62:2181 #<5>
+
+# Timeout in ms for connecting to zookeeper
+zookeeper.connection.timeout.ms=6000
+----
+[NOTE]
+====
+<1> broker.id 集群中唯一 192.168.1.61中定义为0,192.168.1.62中定义为1
+<2> 允许删除topic 设置为true
+<3> advertised.listeners=PLAINTEXT://kafka02:9092 这是新版本集群搭建中的坑,这里配置不正确会在消息读\写时出现Error while fetching metadata with correlation id 1 : {TRAIL_TOPIC=LEADER_NOT_AVAILABLE} (org.apache.kafka.clients.NetworkClient)
+	(见第一节/etc/hosts配置)需在/etc/hosts中配置  192.168.1.61 kafka01和192.168.1.62 kafka02,然后在advertised.listeners配置项中把主机名kafka02引进来,集群中的主机都需要设置/etc/hosts
+<4> log.dirs=/usr/local/kafka_2.11-0.10.2.0/logs 配置日志存放路径
+<5> 配置Zookeeper连接,多个host:port用逗号隔开
+
+其它的配置项采用默认 #注意:修改/ect/hosts后最好重启下服务器#
+====
+
+=== 验证kafka集群
+
+==== 启动kafka
+[NOTE]
+====
+前提是Zookeeper集群已启动,如果Zookeeper集群没有启动,需先启动Zookeeper
+====
+
+1#主机上192.168.1.61上启动kafka:
+[source,bash]
+----
+[root@pms01 kafka_2.11-0.10.2.0]$ nohup bin/kafka-server-start.sh config/server.properties &
+----
+[NOTE]
+====
+已制作成启动脚本 /usr/local/kafka_2.11-0.10.2.0/startKafka.sh
+====
+2#主机上192.168.1.62上启动kafka:
+[source,bash]
+----
+[root@pms02 kafka_2.11-0.10.2.0]$ nohup bin/kafka-server-start.sh config/server.properties &
+----
+[NOTE]
+====
+已制作成启动脚本 /usr/local/kafka_2.11-0.10.2.0/startKafka.sh
+====
+
+==== 验证场景一
+在1#主机192.168.1.61上创建topic名称为cplgx并放入消息,在2#主机192.168.1.62上读取消息
+
+1#主机192.168.1.61上创建topic
+[source,bash]
+----
+[root@pms01 kafka_2.11-0.10.2.0]$ bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 2 --partitions 1 --topic cplgx
+----
+查看topic
+[source,bash]
+----
+[root@pms01 kafka_2.11-0.10.2.0]$ bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic cplgx
+----
+放入消息
+[source,bash]
+----
+[root@pms01 kafka_2.11-0.10.2.0]$ bin/kafka-console-producer.sh --broker-list localhost:9092 --topic cplgx
+----
+
+2#主机192.168.1.62上,监听topic cplgx 中的消息
+[source,bash]
+----
+[root@pms02 kafka_2.11-0.10.2.0]$ bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic cplgx
+----
+结果可以发现192.168.1.61上放入消息后,192.168.1.62上立即能读取到放入的消息
+
+==== 验证场景二
+在2#主机192.168.1.62上放入消息,在1#主机192.168.1.61上读取消息
+
+2#主机192.168.1.62上放入消息:
+[source,bash]
+----
+[root@pms02 kafka_2.11-0.10.2.0]$ bin/kafka-console-producer.sh --broker-list localhost:9092 --topic cplgx
+----
+1#主机192.168.1.61上监听消息:
+[source,bash]
+----
+[root@pms01 kafka_2.11-0.10.2.0]$ bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic cplgx
+----
+结果可以发现192.168.1.62上放入消息后,192.168.1.61上立即能读取到放入的消息
+
+=== kafka小结
+到此,集群已经OK,坑坑坑,坑就在config/server.properties的配置.新版本的kafka相对于旧版本减少了不少配置,advertised.listeners的配置需要用到/etc/hosts中的host配置项
+
+== 小结
+Zookeeper集群支撑kafka实现双集群,摒弃了kafka内置的Zookeeper,精简了系统,不用启动两套zk。
+
+

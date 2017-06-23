@@ -1,0 +1,335 @@
+= CI服务器搭建手册
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: CI服务器搭建手册
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 简介
+生产应用(PMS)持续集成服务器搭建,目的为了满足项目自动化构建,目前已经应用到
+
+ - [[[1]]] 开发环境发布
+ - [[[2]]] 联调环境发布
+ - [[[3]]] GIT分支合并
+ - [[[4]]] 数据库周期备份
+ - [[[5]]] 数据库迁移
+
+自动化过程中。CI工具选择jenkins，以下为持续集成服务器搭建完整过程。服务器操作系统选用 #CentOS 7# ，可以更好的支持 `openVPN，yum` 等。
+
+== 下载CentOS 7
+iso镜像下载
+http://www.centoscn.com/CentosSoft/iso/2016/1214/8276.html[CentOS-7-x86_64-DVD-1611.iso]
+
+== 安装CentOS 7
+
+虚拟机安装，版本VMware 10.0
+
+- 虚拟机名称定义为:pms04
+- 网络连接模式:桥接
+- root用户密码Pms@123456
+- 安装步骤(步骤略)
+
+== 配置网络连接
+
+=== 修改网卡信息
+
+[source,bash]
+----
+$ vi /etc/sysconfig/network-scripts/ifcfg-ens33
+TYPE=Ethernet
+BOOTPROTO=static # <1>
+DEFROUTE=yes
+PEERDNS=yes
+PEERROUTES=yes
+IPV4_FAILURE_FATAL=no
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+IPV6_DEFROUTE=yes
+IPV6_PEERDNS=yes
+IPV6_PEERROUTES=yes
+IPV6_FAILURE_FATAL=no
+IPV6_ADDR_GEN_MODE=stable-privacy
+NAME=ens33
+UUID=16f5b3ee-f3a2-4b47-8a3b-cb626f8b97ff
+DEVICE=ens33
+ONBOOT=yes # <2>
+IPADDR=192.168.1.60
+NETMASK=255.255.255.0
+GATEWAY=192.168.1.1
+DNS1=61.139.2.69
+DNS2=202.98.96.68
+----
+
+[NOTE]
+====
+<1> BOOTPROTO=#static#  静态获取
+<2> ONBOOT=#yes# 系统启动时配置
+====
+
+=== 修改主机名称
+
+[source,bash]
+----
+$ vi /etc/hosts
+127.0.0.1   pms04 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+$ vi /etc/hostname
+pms04
+----
+
+=== 重启network服务
+[source,bash]
+----
+$ service network restart
+----
+== 安装openvpn
+
+=== 安装epel-release
+http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm[epel-release下载地址]
+[source,bash]
+----
+$ rpm -Uvh epel-release-7-9.noarch.rpm
+----
+
+=== 安装openvpn
+[source,bash]
+----
+$ yum install openvpn
+----
+
+=== 配置client
+新建目录/etc/openvpn/client/config
+
+将授权密钥上传至/etc/openvpn/client/config共6个文件:
+
+    ca.crt
+    pms616.ovpn
+    ta.key
+    vpnpms616.crt
+    vpnpms616.csr
+    vpnpms616.key
+
+=== 启动openvpn
+[source,bash]
+----
+$ nohup openvpn --config /etc/openvpn/client/config/pms616.ovpn &
+----
+
+NOTE: (已制作成启动脚本文件:/etc/openvpn/client/config/startvpn.sh)
+
+== 安装git
+[source,bash]
+----
+$ yum install git
+----
+
+== 安装JDK1.8
+[source,bash]
+----
+$ yum install java-1.8.0-openjdk  java-1.8.0-openjdk-devel
+----
+
+== 安装wget
+[source,bash]
+----
+$ yum install wget
+----
+
+
+== 安装Apache-maven
+[source,bash]
+----
+$ wget http://repos.fedorapeople.org/repos/dchen/apache-maven/epel-apache-maven.repo -O /etc/yum.repos.d/epel-apache-maven.repo
+$ yum -y install apache-maven
+----
+
+== 安装jenkins
+
+=== 生成映射库
+[source,bash]
+----
+$ wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
+----
+
+=== 安装public key
+[source,bash]
+----
+$ rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
+----
+
+=== 安装jenkins
+[source,bash]
+----
+$ yum -y install jenkins
+----
+
+=== 启动jenkins
+[source,bash]
+----
+$ /etc/rc.d/init.d/jenkins start
+----
+
+NOTE: jenkins.war默认放置在/usr/lib/jenkins/目录下,默认端口为8080,安装jenkins时已配置了开机自动启动。
+
+
+=== 配置jenkins用户公钥
+[source,bash]
+----
+$ su -s /bin/bash jenkins # <1>
+$ ssh-kengen # <2>
+$ ssh-copy-id root@192.168.1.39 <3>
+$ ssh-copy-id root@192.168.1.12 <4>
+----
+
+[NOTE]
+====
+<1> 切换到jenkins用户
+<2> 生成公钥
+<3> 拷贝公钥到开发服务器
+<4> 拷贝公钥到联调服务器
+====
+
+[WARNING]
+====
+*拷贝公钥时需要对方服务器root用户密码*
+====
+
+=== 配置jenkins用户git权限
+以jenkins用户登录
+
+[source,bash]
+----
+$ vi /var/lib/jenkins/.gitconfig
+
+[user]
+    name = qust
+    email = 13214123320@163.com
+[credential]
+    helper = store
+----
+
+NOTE: 第一次拉git代码需要手动输入用户密码,以后git所有操作都不用输入用户密码
+
+== 更改防火墙配置
+root用户登录
+[source,bash]
+----
+$ firewall-cmd --zone=public --permanent --add-port=8080/tcp
+----
+
+重启防火墙服务
+
+    service firewalld restart 重启
+    service firewalld start 开启
+    service firewalld stop 关闭
+
+查看防火墙状态
+[source,bash]
+----
+$ firewall-cmd --state
+----
+
+== 安装Centos图形界面
+root用户登录
+[source,bash]
+----
+$ yum groupinstall "GNOME Desktop" "Graphical Administration Tools"
+$ ln -sf /lib/systemd/system/runlevel5.target /etc/systemd/system/default.target
+----
+[NOTE]
+====
+服务器重启时会出现license infomation信息,选项操作依次为1-2-c-c
+====
+
+== 使用jenkins
+
+访问 http://192.168.1.60:8080 ,配置CI脚本即可
+
+== 生产应用各环境配置
+
+	/app/pms/dev
+	/app/pms/tst
+	/app/pms/prd
+	拷贝configApp.js到对应的目录下
+
+./app/pms/dev/configApp.js
+[source,javascript]
+----
+/**
+ * configApp.js
+ * 描述：应用公共配置，开发环境
+ *
+ * @author qust on 2017/5/25.
+ */
+$.extend(PMS_CFG,{
+    baseUrl             : "../../../../pms/",          // 前端地址
+    frameworkServer     : "/framework/",               // 框架组件服务
+    standardCenterServer: "/sc/",                      // 标准中心服务
+    equServer           : "/equ/",                     // 设备台帐服务
+    echgServer          : "/echg/",                    // 设备异动服务
+    apiServer           : "/api/",                     // 对外接口服务
+    portal              : "http://192.168.1.39:10200", // 门户地址，access_token失效后跳转的地址
+    bpmDiagram          : "http://192.168.1.39:20550/",// 统一流程高亮流程图访问地址
+    dev                 : false                        // 联调环境设置为false
+});
+----
+
+./app/pms/tst/configApp.js
+[source,javascript]
+----
+/**
+ * configApp.js
+ * 描述：应用公共配置，联调环境
+ *
+ * @author qust on 2017/5/25.
+ */
+$.extend(PMS_CFG,{
+    baseUrl             : "../../../../pms/",          // 前端地址
+    frameworkServer     : "/framework/",               // 框架组件服务
+    standardCenterServer: "/sc/",                      // 标准中心服务
+    equServer           : "/equ/",                     // 设备台帐服务
+    echgServer          : "/echg/",                    // 设备异动服务
+    apiServer           : "/api/",                     // 对外接口服务
+    portal              : "http://192.168.1.12:10200", // 门户地址，access_token失效后跳转的地址
+    bpmDiagram          : "http://192.168.1.12:20550/",// 统一流程高亮流程图访问地址
+    dev                 : false                        // 联调环境设置为false
+});
+----
+
+./app/pms/prd/configApp.js
+[source,javascript]
+----
+/**
+ * configApp.js
+ * 描述：应用公共配置，生产环境
+ *
+ * @author qust on 2017/5/25.
+ */
+$.extend(PMS_CFG,{
+    baseUrl             : "../../../../pms/",          // 前端地址
+    frameworkServer     : "/framework/",               // 框架组件服务
+    standardCenterServer: "/sc/",                      // 标准中心服务
+    equServer           : "/equ/",                     // 设备台帐服务
+    echgServer          : "/echg/",                    // 设备异动服务
+    apiServer           : "/api/",                     // 对外接口服务
+    portal              : "http://192.168.1.11:10200", // 门户地址，access_token失效后跳转的地址
+    bpmDiagram          : "http://192.168.1.11:20550/",// 统一流程高亮流程图访问地址
+    dev                 : false                        // 联调环境设置为false
+});
+----
+
+[WARNING]
+====
+dev-开发,tst-联调,prd-生产,configApp.js中的配置项各不一样
+====
+
+== 完毕
