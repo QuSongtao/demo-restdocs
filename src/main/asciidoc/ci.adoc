@@ -112,16 +112,16 @@ $ yum install openvpn
 将授权密钥上传至/etc/openvpn/client/config共6个文件:
 
     ca.crt
-    pms616.ovpn
+    pms.ovpn
     ta.key
-    vpnpms616.crt
-    vpnpms616.csr
-    vpnpms616.key
+    vpnpms.crt
+    vpnpms.csr
+    vpnpms.key
 
 === 启动openvpn
 [source,bash]
 ----
-$ nohup openvpn --config /etc/openvpn/client/config/pms616.ovpn &
+$ nohup openvpn --config /etc/openvpn/client/config/pms.ovpn &
 ----
 
 NOTE: (已制作成启动脚本文件:/etc/openvpn/client/config/startvpn.sh)
