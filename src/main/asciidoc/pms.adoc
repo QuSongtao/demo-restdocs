@@ -40,6 +40,9 @@ Zookeeper、zkui、redis、kafka、RabbitMQ、nginx的安装和配置手册，�
 
 |link:redis.html[redis安装与配置]
 |redis安装与配置
+
+|link:nginx.html[nginx安装与配置]
+|nginx安装与配置
 |===
 
 == 应用API手册
