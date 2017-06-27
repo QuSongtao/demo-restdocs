@@ -27,6 +27,11 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.*;
 import static org.springframework.restdocs.payload.PayloadDocumentation.subsectionWithPath;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.snippet.Attributes.attributes;
+import static org.springframework.restdocs.snippet.Attributes.key;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -111,25 +116,34 @@ public class DemoRestdocsApplicationTest {
 	public void getUser() throws Exception{
 		this.mockMvc.perform(get("/user/5").accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
-				.andDo(document("index",preprocessResponse(prettyPrint()),
+				.andDo(document("index",
+
 						responseFields(
 								fieldWithPath("email")
 										.description("The user's email address"),
 								fieldWithPath("name").description("The user's name"))));
 	}
 
-	@After
-	public void tearDown() {
-
+	@Test
+	public void getTest() throws Exception{
+		this.mockMvc.perform(get("/user/{id}", "mc").param("title","mc").param("title1","mcc"))
+				.andExpect(status().isOk())
+				.andDo(document("locations",
+						pathParameters(
+								parameterWithName("id").description("The location's latitude")
+						),
+						requestParameters(
+								parameterWithName("title").description("The user's username"),
+								parameterWithName("title1").description("The user's username2")
+						),
+						responseFields(
+								fieldWithPath("email")	.description("The user's email address"),
+								fieldWithPath("name").description("The user's name"))
+				));
 	}
 
-	public static void main(String[] strings){
-		int x = 1,y=2;
-		int z;
-		z = x + y;
-		y = z - y;
-		x = z - y;
-		System.out.println("x= "+ x + " ,y = " + y);
+	@After
+	public void tearDown() {
 
 	}
 }

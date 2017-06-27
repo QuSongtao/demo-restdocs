@@ -122,4 +122,6 @@ include::{snippets}/{apiDirName}/http-response.adoc[]
 include::{snippets}/{apiDirName}/request-body.adoc[]
 .response-body
 include::{snippets}/{apiDirName}/response-body.adoc[]
+.response-fields
+include::{snippets}/{apiDirName}/response-fields.adoc[]
 
