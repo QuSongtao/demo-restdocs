@@ -16,6 +16,8 @@
 
 package com.suncd;
 
+import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
+import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.hypermedia.HypermediaDocumentation.linkWithRel;
 import static org.springframework.restdocs.hypermedia.HypermediaDocumentation.links;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
@@ -44,10 +46,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.JUnitRestDocumentation;
+import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.context.WebApplicationContext;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -117,11 +122,23 @@ public class DemoRestdocsApplicationTest {
 		this.mockMvc.perform(get("/user/5").accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
 				.andDo(document("index",
-
+						preprocessResponse(prettyPrint()),
 						responseFields(
-								fieldWithPath("email")
-										.description("The user's email address"),
-								fieldWithPath("name").description("The user's name"))));
+								fieldWithPath("email")	.description("The user's email address"),
+								fieldWithPath("name").description("The user's name")
+						)
+				));
+	}
+
+	@Test
+	public void getStr() throws Exception{
+		this.mockMvc.perform(get("/user/str").accept(MediaType.TEXT_PLAIN))
+				.andExpect(status().isOk())
+				.andDo(document("userStr"//,
+//						relaxedResponseFields(
+//								fieldWithPath("ddd").description("return String!")
+//						)
+				));
 	}
 
 	@Test
@@ -138,8 +155,45 @@ public class DemoRestdocsApplicationTest {
 						),
 						responseFields(
 								fieldWithPath("email")	.description("The user's email address"),
-								fieldWithPath("name").description("The user's name"))
+								fieldWithPath("name").description("The user's name")
+						)
 				));
+	}
+
+	@Test
+	public void testListMap() throws Exception {
+		MultiValueMap<String,String> map = new LinkedMultiValueMap<>();
+		map.add("arg1","1213");
+		map.add("arg2","2222");
+		this.mockMvc.perform(
+				get("/test").params(map)/*1.请求url及对应path参数赋值*/
+						.header("access_token", "b1ec9c03-36ce-4e9b-8b23-e26406623e0a")/*2.设置请求头参数及赋值--固定*/
+						.accept(MediaType.APPLICATION_JSON)/*4.设置accept*/
+		).andExpect(status().isOk())
+				.andDo(
+						document(
+								"map", /*5.输出目录的名称--自定义*/
+								preprocessResponse(prettyPrint()),/*6.响应的数据进行JSON格式美化--固定*/
+								requestHeaders(/*7.请求头参数描述--固定*/
+										headerWithName("access_token").description("access_token授权码")
+								),
+//                                pathParameters(/*8.path参数描述--name必须一致*/
+//                                        parameterWithName("id1").description("第一个path参数说明"),
+//                                        parameterWithName("id2").description("第二个path参数说明")
+//                                ),
+								requestParameters(/*9.requestParam参数描述--name必须一致*/
+										parameterWithName("arg1").description("第一个RequestParam参数说明 #(必填)#"),
+										parameterWithName("arg2").description("第二个RequestParam参数说明 #(选填)#")
+								),
+								responseFields(/*10.响应参数描述--path必须一致*/
+										fieldWithPath("[]").description("Array对象"),
+										fieldWithPath("[].arg1").description("arg1注释说明"),
+										fieldWithPath("[].arg2").description("arg2注释说明")
+
+
+								)
+						)
+				);
 	}
 
 	@After

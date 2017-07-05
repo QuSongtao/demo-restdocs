@@ -116,7 +116,7 @@ mysql>update user set host='%' where user='root';
 === 常用一:备份数据库脚本
 [source,bash]
 ----
-/usr/bin/mysqldump -uroot -proot --default-character-set=utf8 -R --databases pms > /var/lib/mysql/pms_`date +%Y%m%d`.sql
+/usr/bin/mysqldump -uroot -proot --databases pms --default-character-set=utf8 --opt -Q -R --skip-lock-tables > /var/lib/mysql/pms_`date +%Y%m%d`.sql
 ----
 
 === 常用二:恢复数据库脚本
