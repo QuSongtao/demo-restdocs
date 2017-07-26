@@ -1,3 +1,10 @@
+/*
+ * 版权 2017 成都太阳高科技有限公司
+ *
+ * 2017-07-01 增加设备投运功能
+ * 2017-07-12 由于涉及提出重大变更，废弃设备变更功能大部分业务
+ */
+
 package com.suncd.controller;
 
 import com.suncd.entity.ContractDto;
@@ -16,13 +23,13 @@ import java.util.Map;
  * @author qust
  * @version 1.0  2017/5/17
  */
-//@RequestMapping("/restDocs")
 @RestController
 public class RestDocsController {
 
     @RequestMapping(value = "/",method = RequestMethod.GET)
     public String restTest(){
         return "cplgx";
+
     }
 
     @RequestMapping(value = "/user/5",method = RequestMethod.GET)
