@@ -1,0 +1,900 @@
+= 生产应用(PMS)前端框架关键技术说明
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: 生产应用(PMS)前端框架关键技术说明
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 目的
+梳理前端关键技术，形成该文档便于系统运维，同时使扩展更简单。
+
+==
+
+=== 类和接口命名
+类和接口使用类意义完整的英文描述。每个英文单词的首字母使用大写、其余字母使用小写，驼峰命名法。
+[source,java]
+----
+public class BpmController {
+
+}
+----
+
+常用组件类命名规范
+
+- 数据传输对象(Data Transfer Object)：以Dto结尾，如UserDto.java
+- 数据库实体命名：以Entity结尾，如：UserEntity.java
+- controller包下类命名：以Controller结尾，如：UserController.java
+- dao包下类命名：以Dao结尾，如：UserDao.java
+- service包下类命名：以Service结尾，如：UserService.java
+- 接口实现类命名：以Impl结尾，：如UserServiceImpl.java
+- config配置类命名：以Config结尾，如：DatabaseConfig.java
+
+[NOTE]
+====
+注意：所有的服务类里应定义接口类和对应实现类，如：接口UserService.java 的实现类UserServiceImpl.java，
+====
+
+=== 方法命名
+方法名使用意义完整的英文描述。第一个单词的字母使用小写、其他单词首字母大写其余字母小写，驼峰命名法。
+[source,java]
+----
+public interface UserService {
+    int addUser(User user);
+    int addUsers(List<User> users);
+}
+----
+[NOTE]
+====
+注意:接口中定义的方法不要加修饰符,如:public,static,final
+====
+
+=== 变量和常量命名
+
+变量使用意义完整的英文描述，第一个单词的字母使用小写，其他单词首字母大写其余字母小写,变量名不能和方法名相同，驼峰命名法。
+[source,java]
+----
+public class UserDemo{
+    private String name;
+    private int orderNumber;
+    private Session smpSession;
+    private List<User> users;//<1>
+    private List<Order> orderList;<2>
+    private byte[] array;//<3>
+}
+----
+[NOTE]
+====
+<1> 集合意义的变量名定义1:以复数形式
+<2> 集合意义的变量名定义2:以xxxList形式
+<3> 数组的命名应该总是把[]写在变量类型和变量之间,而不是private byte array[];
+====
+
+常量名使用全大写的意义完整的英文描述，英文单词间用下划线分隔开，并且使用static final修饰。
+[source,java]
+----
+public class UserConfig{
+    public static final int MAX_CONNECTION = 1000;
+    public static final String PROJECT_NAME = "MIC";
+}
+----
+
+== 注释规范
+要求：在代码中，注释的比例应该占30% - 50%，完整的注释使代码变得更易读，易维护。
+
+=== 类文件注释规范
+文件注释，写入文件头部，包名之前的位置。使用/*开始以避免被Javadoc收集。
+在文件头部描述文件的内容，如果有重大修改，记下更新日期，以及修该原因，更改内容简单描述。
+[source,java]
+----
+/*
+ * 版权 2017 成都太阳高科技有限公司
+ *
+ * 2017-07-01 增加设备投运功能
+ * 2017-07-12 由于涉及提出重大变更，废弃设备变更功能大部分业务
+ */
+
+package com.suncd.controller;
+
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class RestDocsController {
+
+}
+----
+[NOTE]
+====
+该注释为非必要注释。
+====
+
+=== 类/接口注释规范
+描述此类/接口的功能，注意事项，作者、版本修改内容等信息。
+[source,java]
+----
+package com.suncd.controller;
+
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 功能：RestDocs Controller <1>
+ *
+ *
+ * @author qust <2>
+ * @author tom
+ * @version 1.0  2017-05-17 qust增加3个功能 <3>
+ * @version 1.1  2017-05-27 tom修改4个业务处理
+ */
+@RestController
+public class RestDocsController {
+
+}
+----
+[NOTE]
+====
+<1> 功能描述信息
+<2> 作者信息
+<3> 版本信息即修改内容
+====
+
+=== 实体及DTO属性注释
+实体或dto中每个属性需要有业务注释,另外常量的定义需要有业务注释
+[source,java]
+----
+public class DemoEntity {
+	/**
+	 * 标识
+	 */
+	private String id;
+
+	/**
+	 * 业务实体名称
+	 */
+	private String ywstmc;
+
+	/**
+	 * 表名
+	 */
+	private String tablename;
+
+	/**
+	 * 大纲表名
+	 */
+	private String dgbname;
+
+	/**
+	 * 运行位置表名
+	 */
+	private String yxwzbname;
+}
+----
+
+=== 方法级注释规范
+需描述该方法的功能,以及参数和返回值说明,接口和实现类中的方法都需要注释
+[source,java]
+----
+/**
+ * 功能说明：启动流程实例 <1>
+ * @param objId        业务数据主键(必填) <2>
+ * @param key          流程定义key(必填)
+ * @param taskName     任务名称(选填)
+ * @param ssxlzf       所属线路\站房(选填)
+ * @param userId       发起者账号(选填)
+ * @param handler      下一步处理人(选填)
+ * @param bKey  业务编码(选填)
+ * @param variables    流程变量(选填)：流程模板中定义的变量,格式为json格式,如：{"s1":"aaa","s2":"bbb"},对应流程变量EL表达式${s1}和${s2}。
+ * @return Response    流程实例信息 <3>
+ */
+@RequestMapping(value = "/startIns", method = RequestMethod.POST)
+public Response<?> startIns(@RequestParam(value="objId", required=true) String objId,
+                            @RequestParam(value="key", required=true) String key,
+                            @RequestParam(value="taskName", required=false) String taskName,
+                            @RequestParam(value="ssxlzf", required=false) String ssxlzf,
+                            @RequestParam(value="userId", required=false) String userId,
+                            @RequestParam(value="handler", required=false) String handler,
+                            @RequestParam(value="businessKey", required=false) String bKey,
+                            @RequestParam(value="variables", required=false) String variables) {
+    return new Response<>().success();
+}
+----
+[NOTE]
+====
+<1> 功能描述注释
+<2> 方法参数说明
+<3> 返回值说明
+====
+
+=== mybatis xml注释
+mybatis xml中需要有业务注释,标明每段SQL具体执行的业务操作,注释规范如下:
+[source,xml]
+----
+<!-- 根据sql,进行查询，配置的实体--> //<1>
+<select id="getStById" parameterType="String" resultMap="BaseResultMap">
+    SELECT * FROM fw_comm_stpz WHERE id = #{ID}
+</select>
+
+<!-- 根据stid查询查询配置的字段 --> //<2>
+<select id="getZdByStId" parameterType="String" resultMap="ZdResultMap">
+    SELECT * FROM fw_comm_stpz_zdpz
+    WHERE ssywst = (select id from fw_comm_stpz where id = #{ID}) and showtype in (${@com.suncd.pms.framework.dao.cfg.CodeConfig@FW_ZDPZ_SHOWSTYLE_GRID},${@com.suncd.pms.framework.dao.cfg.CodeConfig@FW_ZDPZ_SHOWSTYLE_GRIDFROM})
+    order by gdisindex
+</select>
+----
+
+=== 代码块注释规范
+原则上复杂的逻辑代码需要有业务注释，如if，for代码块， #关键业务处理步骤# 需要以 `1,2,3...` 编号进行注释说明。
+[source,java]
+----
+private void dealData(GisRequestVo requestVo) throws Exception {
+    //1.转换GIS报文 <1>
+    ArrayList<RecordInfo> dataList = requestVo.getDataList();
+    StringBuffer recvIds = new StringBuffer();
+    //2.循环验证数据格式 <2>
+    for (Iterator iterator = dataList.iterator(); iterator.hasNext();) {
+        //2.1.取GIS的报文基础字段数据
+        RecordInfo recordInfo = (RecordInfo) iterator.next();
+        ...
+        //2.1.保存gis图形id与pms主键id关系
+        if ("insert".equalsIgnoreCase(recvLogEntity.getOper())) {
+            saveIdRel(recordInfo.getRecordList(), recvLogEntity.getTotable(), recvLogEntity.getBusitype());
+        }
+    }
+    //3.MQ消息处理 <3>
+    if (recvIds.length() > 1) {
+        // 发送MQ消息
+        // 1).消息为日志表主键id,多个以逗号隔开,业务方法拿到此id做对应的recordList拆解和业务处理
+        // 2).消息类型为direct
+        directSendService.doDirectSend(recvIds.substring(1));
+    }
+}
+----
+[NOTE]
+====
+<1> 关键业务处理步骤1
+<2> 关键业务处理步骤2
+<3> 关键业务处理步骤3
+====
+
+== 编码规范
+
+=== 异常日志规范
+日志操作使用slf4j
+[source,java]
+----
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Demo{
+    private static final Logger LOGGER = LoggerFactory.getLogger(Demo.class);
+}
+----
+异常处理规范:try{...}catch{...}代码块中,异常处理统一按如下规范:
+[source,java]
+----
+try {
+    //do some
+}catch (Exception e){
+    LOGGER.error("XXX业务处理异常",new LogMessage<>("XX操作异常",e,"/echg/sbxl/dealData"));//<1>
+    return new Response<>().failure("XXX业务处理出错");//<2>
+}
+----
+[NOTE]
+====
+<1> 异常的详细信息记录到日志中,包括业务处理名称、异常堆栈信息、请求的url三部分
+<2> 如果有返回前台的信息,需包装成new Response<>().failure("XXX")返回到前台,注意:返回到前台的内容应为 #可读易懂具有业务含义# 的内容(用户看的东西应该是业务语言),
+不应包括英文或者SQL语句,同时 #e.getMessage()的内容不要# 返回到前台.
+====
+
+=== 非空校验工具
+对象的非空判断统一使用Spring提供的工具类:org.springframework.util,尽量不要自己写非空判断,不推荐如下的方式:
+
+[source,java]
+----
+if(null == arg1 || "" == arg1 || "".equals(arg1)){
+    //do some
+}
+----
+应统一使用Spring工具类进行判断,示例代码如下:
+[source,java]
+----
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 功能：非空校验
+ *
+ * @author qust
+ * @version 1.0  2017/7/18
+ */
+public class ToolService {
+    public void emptyTest(){
+        //1.字符串非空判断
+        String str1 = null;
+        String str2 = "";
+        String str3 = "ok";
+        StringUtils.isEmpty(str1); //true
+        StringUtils.isEmpty(str2); //true
+        StringUtils.isEmpty(str3); //false
+
+        //2.集合List、Map非空判断
+        List list1 = null;
+        List list2 = new ArrayList();
+        Map map1 = null;
+        Map map2 = new HashMap();
+        Map map3 = new HashMap();
+        map3.put("1","2");
+        CollectionUtils.isEmpty(list1); //true
+        CollectionUtils.isEmpty(list2); //true
+        CollectionUtils.isEmpty(map1); //true
+        CollectionUtils.isEmpty(map2); //true
+        CollectionUtils.isEmpty(map3); //false
+
+        //3.数组及其它对象非空判断
+        String[] strs = new String[]{};
+        ToolService t = null;
+        ObjectUtils.isEmpty(strs); //true
+        ObjectUtils.isEmpty(t); //true
+    }
+----
+
+代码中对于数值的相等比较尽量使用equals进行操作,不使用双等号==
+[source,java]
+----
+int i1 = 1000;
+Integer i2 = 1000;
+
+if(i1 == 12){ //<1>
+    //do some
+}
+
+if(i1.equals(12)){ //<2>
+    //do some
+}
+----
+[NOTE]
+====
+<1> 错误使用方法
+<2> 正确使用方法
+====
+
+=== 代码中硬编码
+java代码、MyBatis XML配置中尽量不要使用硬编码,硬编码可以以常量的形式定义到配置类中，使用者引用即可.
+
+不使用如下的编码
+[source,java]
+----
+if("1001".equals(arg)){ //<1>
+    //do some
+}
+----
+应使用
+[source,java]
+----
+//部门编码
+public static final String BMBM = "1001";
+
+if(XxxCfg.BMBM.equals(arg)){ //<2>
+    //do some
+}
+----
+[NOTE]
+====
+<1> 硬编码
+<2> 配置类中引用
+
+在MyBatis XML使用常量格式为: #${@com.suncd.pms.framework.dao.cfg.CodeConfig@FW_ZDPZ_SHOWSTYLE_GRID}#
+====
+
+=== 重复代码合并
+相同功能的代码段重复出现在不同的地方，需进行抽取合并，情形如下：
+[source,java]
+----
+/**
+ * 根据id删除字段配置表数据
+ * @param ids
+ * @throws Exception
+ */
+public void delZdData(String ids) throws Exception {
+    String[] idsArray = ids.split("&");
+    StringBuffer delSql = new StringBuffer();
+    delSql.append("delete from fw_comm_stpz_zdpz where id in (");
+    for(int i = 0; i < idsArray.length; i++){ //<1>
+        delSql.append("'");
+        delSql.append(idsArray[i]);
+        delSql.append("'");
+        if(i != idsArray.length-1){
+            delSql.append(",");
+        }
+    }
+    delSql.append(")");
+    pageDao.updateInfo(delSql.toString());
+}
+
+/**
+ * 根据id删除实体配置表数据
+ * @param ids
+ * @throws Exception
+ */
+public void delStData(String ids) throws Exception {
+    String[] idsArray = ids.split("&");
+    StringBuffer stdelSql = new StringBuffer();
+    StringBuffer zddelSql = new StringBuffer();
+    StringBuffer delSql = new StringBuffer();
+    stdelSql.append("delete from fw_comm_stpz where id in (");
+    zddelSql.append("delete from fw_comm_stpz_zdpz where ssywst in (");
+    for(int i = 0; i < idsArray.length; i++){ //<2>
+        delSql.append("'");
+        delSql.append(idsArray[i]);
+        delSql.append("'");
+        if(i != idsArray.length-1){
+            delSql.append(",");
+        }
+    }
+    stdelSql.append(delSql).append(")");
+    zddelSql.append(delSql).append(")");
+    pageDao.updateInfo(stdelSql.toString());
+    pageDao.updateInfo(zddelSql.toString());
+}
+----
+[NOTE]
+====
+两处的代码重复，需抽取公共方法，供两者调用。
+====
+
+=== 降低方法复杂度
+建议一个方法的代码行数不要超过50行，庞大的方法，可读性差，维护难度大，需要进行拆解，主体方法中只保留主要逻辑，逻辑的具体实现放在分支方法中，如下这个庞大的方法：
+[source,java]
+----
+/**
+ * @param tableName 表名
+ * @param id 业务id
+ * @param sqdid 申请的id
+ * @param oper 操作类型 (insert,update,delete)
+ * @param zylx 专业
+ * 输电	1001
+ * 变电	1002
+ * 配电	1003
+ */
+public void appendBgsbqd(String tableName, String ywid, String sqdid, String oper, String zylx) {
+    if(sqdid == null || "".equals(sqdid)){
+        return;
+    }
+    EchgBgsbqdEntity bgsbqd = new EchgBgsbqdEntity();
+    String sql = "select * from "+tableName+" where id = '"+ywid+"'";
+    Map<String, Object> map = pageDao.queryMapBySql(sql);
+    // 变更设备清单ID
+    bgsbqd.setBgsqd_id(sqdid);
+    // 设备ID
+    bgsbqd.setBgsb_id(map.get("id").toString());
+    // 设备名称
+    String[] sbmcs = {"sbmc","xlmc","gtbh"};
+    for(String str : sbmcs){
+        if(map.containsKey(str)){
+            bgsbqd.setSbmc(map.get(str)==null?null:map.get(str).toString());
+        }
+    }
+    // 电压等级
+    bgsbqd.setDydj(map.get("dydj")==null?null:map.get("dydj").toString());
+    // 所属站房线路
+    String[] zfxls = {"sszf","ssxl"};
+    for(String str : zfxls){
+        if(map.containsKey(str)){
+            bgsbqd.setSszfxl(map.get(str)==null?null:map.get(str).toString());
+        }
+    }
+    // 所属站房线路ID
+    String[] zfxlids = {"sszf_id","ssxl_id"};
+    for(String str : zfxlids){
+        if(map.containsKey(str)){
+            bgsbqd.setSszfxl_id(map.get(str)==null?null:map.get(str).toString());
+        }
+    }
+    // 所属间隔ID
+    bgsbqd.setSsjg_id(map.get("ssjg_id")==null?null:map.get("ssjg_id").toString());
+    // 所属间隔
+    bgsbqd.setSsjg(map.get("ssjg")==null?null:map.get("ssjg").toString());
+    // 所属上级设备ID
+    bgsbqd.setSssjsb_id(map.get("sssjsb_id")==null?null:map.get("sssjsb_id").toString());
+    // 所属上级设备
+    bgsbqd.setSssjsb(map.get("sssjsb")==null?null:map.get("sssjsb").toString());
+    // 所属主线ID
+    bgsbqd.setSszx_id(map.get("sszx_id")==null?null:map.get("sszx_id").toString());
+    // 所属主线
+    bgsbqd.setSszx(map.get("sszx")==null?null:map.get("sszx").toString());
+    // 所属馈线ID
+    bgsbqd.setSskx_id(map.get("sskx_id")==null?null:map.get("sskx_id").toString());
+    // 所属馈线
+    bgsbqd.setSskx(map.get("sskx")==null?null:map.get("sskx").toString());
+    // 所属公司
+    bgsbqd.setYwdw(map.get("ssgs")==null?null:map.get("ssgs").toString());
+    // 所属公司ID
+    bgsbqd.setYwdw_id(map.get("ssgs_id")==null?null:map.get("ssgs_id").toString());
+    // 投运日期
+    Date tyrq = null;
+    if(map.get("tyrq") != null){
+         tyrq = formatDate(map.get("tyrq").toString());
+    }
+    bgsbqd.setTyrq(tyrq == null?null:tyrq);
+    // 运行状态
+    bgsbqd.setYxzt(map.get("yxzt")==null?null:map.get("yxzt").toString());
+    // 维护班组
+    bgsbqd.setWhbz(map.get("whbz")==null?null:map.get("whbz").toString());
+    // 维护班组ID
+    bgsbqd.setWhbz_id(map.get("whbz_id")==null?null:map.get("whbz_id").toString());
+    // 台帐表名
+    bgsbqd.setTzbm(tableName);
+    // 是否审核通过 默认为否
+    bgsbqd.setSfshtg(CodeConfig.GGDM_SF_FOU);
+    // 专业
+    bgsbqd.setZylx(zylx);
+
+    bgsbqd.setStatus(CodeConfig.GGDM_CLZT_WCL);
+    String isHaveSql = "select id,oper from echg_bgsbqd where bgsqd_id = '"+sqdid+"' and bgsb_id = '"+ywid+"' ";
+    List<Map<String,Object>> list = pageDao.queryListBySql(isHaveSql);
+    if(list.size() > 0){
+        // 设备变更列表中已存在 进行信息更新
+        String id = list.get(0).get("id").toString();
+        bgsbqd.setId(id);
+        String _oper = list.get(0).get("oper").toString();
+        if("insert".equals(_oper) && "update".equals(oper)){
+            // 说明数据是本次新建的 后续进行了修改 所以操作类型还是为新建
+            bgsbqd.setOper(_oper);
+            bgsbqd.setSfjy(CodeConfig.FW_ZDPZ_SF_S);
+            echgSbqdDao.updateByPrimaryKeySelective(bgsbqd);
+        } else if("insert".equals(_oper) && "delete".equals(oper)){
+            // 说明数据是本次新建的 后续又删除了 所以从设备变更列表中删除数据
+            echgSbqdDao.deleteByPrimaryKey(id);
+        } else{
+            bgsbqd.setOper(oper);
+            bgsbqd.setSfjy(CodeConfig.FW_ZDPZ_SF_S);
+            echgSbqdDao.updateByPrimaryKeySelective(bgsbqd);
+        }
+    }else{
+        String id = getId();
+        bgsbqd.setId(id);
+        bgsbqd.setOper(oper);
+        bgsbqd.setSfjy(CodeConfig.FW_ZDPZ_SF_F);
+        echgSbqdDao.insertSelective(bgsbqd);
+    }
+}
+----
+
+降低复杂度,将业务进行分段,复杂的分段单独抽取一个方法,在主方法中调用分支方法,优化后的代码如下:
+[source,java]
+----
+/**
+ * @param tableName 表名
+ * @param id 业务id
+ * @param sqdid 申请的id
+ * @param oper 操作类型 (insert,update,delete)
+ * @param zylx 专业
+ * 输电	1001
+ * 变电	1002
+ * 配电	1003
+ */
+public void appendBgsbqd(String tableName, String ywid, String sqdid, String oper, String zylx) {
+    if(sqdid == null || "".equals(sqdid)){
+        return;
+    }
+    EchgBgsbqdEntity bgsbqd = new EchgBgsbqdEntity();
+    //1. 设置基础属性
+    // 变更设备清单ID
+    bgsbqd.setBgsqd_id(sqdid);
+    // 台帐表名
+    bgsbqd.setTzbm(tableName);
+    // 专业
+    bgsbqd.setZylx(zylx);
+
+    String sql = "select * from "+tableName+" where id = '"+ywid+"'";
+    Map<String, Object> map = pageDao.queryMapBySql(sql);
+    //2.设置其他属性
+    setVal(bgsbqd,map); //<1>
+    String isHaveSql = "select id,oper from echg_bgsbqd where bgsqd_id = '"+sqdid+"' and bgsb_id = '"+ywid+"' ";
+    List<Map<String,Object>> list = pageDao.queryListBySql(isHaveSql);
+    //3. 根据操作类型操作数据库
+    if(list.size() > 0){
+        // 设备变更列表中已存在 进行信息更新
+        String id = list.get(0).get("id").toString();
+        bgsbqd.setId(id);
+        String _oper = list.get(0).get("oper").toString();
+        if("insert".equals(_oper) && "update".equals(oper)){
+            // 说明数据是本次新建的 后续进行了修改 所以操作类型还是为新建
+            bgsbqd.setOper(_oper);
+            bgsbqd.setSfjy(CodeConfig.FW_ZDPZ_SF_S);
+            echgSbqdDao.updateByPrimaryKeySelective(bgsbqd);
+        } else if("insert".equals(_oper) && "delete".equals(oper)){
+            // 说明数据是本次新建的 后续又删除了 所以从设备变更列表中删除数据
+            echgSbqdDao.deleteByPrimaryKey(id);
+        } else{
+            bgsbqd.setOper(oper);
+            bgsbqd.setSfjy(CodeConfig.FW_ZDPZ_SF_S);
+            echgSbqdDao.updateByPrimaryKeySelective(bgsbqd);
+        }
+    }else{
+        String id = getId();
+        bgsbqd.setId(id);
+        bgsbqd.setOper(oper);
+        bgsbqd.setSfjy(CodeConfig.FW_ZDPZ_SF_F);
+        echgSbqdDao.insertSelective(bgsbqd);
+    }
+}
+
+/**
+ * MAP值映射到变更申请单实体
+ * @param bgsbqd 变更申请单
+ * @param map    map
+ */
+public void setVal(EchgBgsbqdEntity bgsbqd,Map map){ //<2>
+    // 设备ID
+    bgsbqd.setBgsb_id(map.get("id").toString());
+    // 设备名称
+    String[] sbmcs = {"sbmc","xlmc","gtbh"};
+    for(String str : sbmcs){
+        if(map.containsKey(str)){
+            bgsbqd.setSbmc(map.get(str)==null?null:map.get(str).toString());
+        }
+    }
+    // 电压等级
+    bgsbqd.setDydj(map.get("dydj")==null?null:map.get("dydj").toString());
+    // 所属站房线路
+    String[] zfxls = {"sszf","ssxl"};
+    for(String str : zfxls){
+        if(map.containsKey(str)){
+            bgsbqd.setSszfxl(map.get(str)==null?null:map.get(str).toString());
+        }
+    }
+    // 所属站房线路ID
+    String[] zfxlids = {"sszf_id","ssxl_id"};
+    for(String str : zfxlids){
+        if(map.containsKey(str)){
+            bgsbqd.setSszfxl_id(map.get(str)==null?null:map.get(str).toString());
+        }
+    }
+    // 所属间隔ID
+    bgsbqd.setSsjg_id(map.get("ssjg_id")==null?null:map.get("ssjg_id").toString());
+    // 所属间隔
+    bgsbqd.setSsjg(map.get("ssjg")==null?null:map.get("ssjg").toString());
+    // 所属上级设备ID
+    bgsbqd.setSssjsb_id(map.get("sssjsb_id")==null?null:map.get("sssjsb_id").toString());
+    // 所属上级设备
+    bgsbqd.setSssjsb(map.get("sssjsb")==null?null:map.get("sssjsb").toString());
+    // 所属主线ID
+    bgsbqd.setSszx_id(map.get("sszx_id")==null?null:map.get("sszx_id").toString());
+    // 所属主线
+    bgsbqd.setSszx(map.get("sszx")==null?null:map.get("sszx").toString());
+    // 所属馈线ID
+    bgsbqd.setSskx_id(map.get("sskx_id")==null?null:map.get("sskx_id").toString());
+    // 所属馈线
+    bgsbqd.setSskx(map.get("sskx")==null?null:map.get("sskx").toString());
+    // 所属公司
+    bgsbqd.setYwdw(map.get("ssgs")==null?null:map.get("ssgs").toString());
+    // 所属公司ID
+    bgsbqd.setYwdw_id(map.get("ssgs_id")==null?null:map.get("ssgs_id").toString());
+    // 投运日期
+    Date tyrq = null;
+    if(map.get("tyrq") != null){
+        tyrq = formatDate(map.get("tyrq").toString());
+    }
+    bgsbqd.setTyrq(tyrq == null?null:tyrq);
+    // 运行状态
+    bgsbqd.setYxzt(map.get("yxzt")==null?null:map.get("yxzt").toString());
+    // 维护班组
+    bgsbqd.setWhbz(map.get("whbz")==null?null:map.get("whbz").toString());
+    // 维护班组ID
+    bgsbqd.setWhbz_id(map.get("whbz_id")==null?null:map.get("whbz_id").toString());
+
+    // 是否审核通过 默认为否
+    bgsbqd.setSfshtg(CodeConfig.GGDM_SF_FOU);
+    bgsbqd.setStatus(CodeConfig.GGDM_CLZT_WCL);
+}
+----
+[NOTE]
+====
+<1> 主方法中调用分支方法
+<2> 复杂的业务分段单独抽取形成分支方法
+
+好处:降低了代码复杂度,提高了可读可维护性
+====
+
+=== 公共功能抽取
+代码中常用到的小工具，需抽取出公共方法，如：字符串转日期，获取当前日期的字符串等
+[source,java]
+----
+String handTime = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+----
+
+=== 其它注意事项
+
+- 避免大量字符串的相加(一般指5次以上)，应该使用StringBuffer或StringBuilder。
+- 不要使用循环将集合转为数组，可以使用集合的toArray()方法。
+- 数组复制使用System.arraycopy()，这样会有更好的性能。
+- 类中日志工具类对象logger，应声明为static final。以防止重复new出Logger对象。
+
+[source,java]
+----
+private static final Logger logger = LoggerFactory.getLogger(User.class);
+----
+
+- 尽量使用JDK自带的API函数，不要自己写类似功能的函数。
+
+- 在switch中，每个case语句都应该包含break或者return。
+- 不要在switch中使用10个以上的case语句。
+- 不要使用空的for、if、while语句。
+- 在for循环中提供终止条件。
+- 在for, while循环中使用增量计数。
+- 尽量不要在for循环里面定义变量
+- 不要在if语句中使用等号=进行赋值操作。
+- 对于“if (condition) do1; else do2;”语句使用条件操作符“if (condition)?do1:do2;”。
+- 减小单个方法的复杂度，使用if、while、for、switch语句要在10个以内。
+
+- 静态成员或者方法使用类名访问，不使用指针引用访问。
+
+[source,java]
+----
+public class User{
+    public static String len = "00";
+    public static int getAge(){
+        return 0;
+    }
+}
+----
+
+[source,java]
+----
+public class Org{
+    public void testUser(){ //<1>
+        int age = User.getAge();
+        String lens = User.len + "test";
+    }
+
+    public void testUser2(){ //<2>
+        User user = new User()
+        int age = user.getAge();
+        String lens = user.len + "test";
+    }
+}
+----
+[NOTE]
+====
+<1> 直接类名访问
+<2> 不应使用引用访问
+====
+
+- 方法重载的时候，一定要注意方法名相似或相同，避免类中使用两个非常相似的方法名。
+- 不要定义不会被用到的局部变量、类私有属性、类私有方法和方法参数。
+- 字符串和数字运算结果相连接的时候，应该把数字运算部分用小括号括起来。
+
+- IO操作流尽量使用带有buffer功能的类。
+- 尽可能的使用局部变量进行运算。
+- 不要对方法的参数进行赋值操作。
+- 复杂度：建议的最大规模：
+
+    继承层次	5层
+    类的行数	1000行（包含{}）
+    类的方法	20个
+    方法参数	5个
+    方法代码行数	50行
+
+== RESTful API设计规范
+关于RESTful具体的讲解，请参照 http://sofish.github.io/restcookbook/http%20methods/idempotency/[RESTful 手册]
+
+[cols="2", options="header"]
+|===
+|HTTP方法
+|幂等性及语义
+
+|GET
+|获取资源，多次调用同一个URL应该返回同一个资源，冥等。
+
+|POST
+|创建资源，多次调用将产生不同的资源，返回不同的资源描述，不冥等。
+
+|DELETE
+|删除资源，有副作用，但满足冥等性，多次调用对系统不产生影响。
+
+|PUT
+|更新或者创建资源，创建特定的资源，多次调用只产生一个资源，冥等。
+
+|PATCH
+|部分更新资源，多次调用可更新同一个资源不同属性，不冥等。
+|===
+
+[NOTE]
+====
+RESTful只是标准，标准的意思是如果在大家都依此行事的话，沟通成本会很低，开发效率就高。但并非强制(也没人强制得了)，
+所以你说在你的程序里把方法名从put改成patch或者get没有任何影响，那是自然，因为你的后端程序并没有按照标准对两个方法做不同处理。
+====
+
+=== 创建资源
+创建一个组织或者用户,用POST请求
+[source,http,options="nowrap"]
+----
+POST http://192.168.1.222/suncd/org HTTP/1.1
+{
+    orgName:"HR部门",
+    employeeNumber:4,
+    ...
+}
+----
+
+=== 获取资源
+查询一个组织或者用户,用GET请求
+
+查询id为1的组织
+[source,http,options="nowrap"]
+----
+GET http://192.168.1.222/suncd/org/1 HTTP/1.1
+----
+查询id为1,2,3,4的多个组织
+[source,http,options="nowrap"]
+----
+GET http://192.168.1.222/suncd/org/1,2,3,4 HTTP/1.1
+----
+[NOTE]
+====
+所有获取资源，不对资源进行操作（更新，删除）的API都应设计为GET请求。
+====
+
+=== 删除资源
+删除一个组织或者用户,用DELETE请求
+
+删除id为1的组织
+[source,http,options="nowrap"]
+----
+DELETE http://192.168.1.222/suncd/org/1 HTTP/1.1
+----
+删除id为1,2,3,4的多个组织
+[source,http,options="nowrap"]
+----
+DELETE http://192.168.1.222/suncd/org/1,2,3,4 HTTP/1.1
+----
+
+=== 更新资源
+更新资源的所有属性,用PUT请求
+[source,http,options="nowrap"]
+----
+PUT http://192.168.1.222/suncd/org/1 HTTP/1.1
+{
+    orgName:"HR部门",
+    orgCode:"1001"
+    employeeNumber:4,
+    createDate:"2010-01-01"
+    leader:"0001"
+}
+----
+更新资源的局部属性,用PATCH请求
+[source,http,options="nowrap"]
+----
+PATCH http://192.168.1.222/suncd/org/1 HTTP/1.1
+{
+    orgName:"HR部门A"
+}
+----
+
+=== 上传下载
+文件上传统一用POST请求
+[source,http,options="nowrap"]
+----
+POST http://192.168.1.222/suncd/org/file HTTP/1.1
+----
+文件下载统一用GET请求
+[source,http,options="nowrap"]
+----
+GET http://192.168.1.222/suncd/org/file HTTP/1.1
+----
+
+== 完毕

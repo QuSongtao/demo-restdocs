@@ -111,12 +111,20 @@ mysql>CREATE USER 'pms'@'%' IDENTIFIED BY 'Pms@123456';
 mysql>GRANT ALL ON pms.* TO 'pms'@'%';
 mysql>GRANT ALL ON pms_his.* TO 'pms'@'%';
 mysql>update user set host='%' where user='root';
+mysql>flush privileges;
 ----
 
 === 常用一:备份数据库脚本
 [source,bash]
 ----
 /usr/bin/mysqldump -uroot -proot --databases pms --default-character-set=utf8 --opt -Q -R --skip-lock-tables > /var/lib/mysql/pms_`date +%Y%m%d`.sql
+
+# -d 不创建数据库
+# -n 不导出数据
+# -t 不导出表结构
+# -R 导出存储过程和函数
+# --single-transaction 锁定全部表
+/usr/bin/mysqldump -h192.168.1.* -upms -pPms@123456 -d -n -t -R --single-transaction --default-character-set=utf8 -R --databases pms>my1.sql
 ----
 
 === 常用二:恢复数据库脚本
