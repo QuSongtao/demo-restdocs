@@ -1,0 +1,180 @@
+= Elasticsearch-集群配置手册
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: Elasticsearch-集群配置手册
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+集群环境配置:
+操作系统选择:Linux CentOS7 (4CPU,16G,200G)
+
+    2台服务器:
+    192.168.1.58 (主节点)
+    192.168.1.59 (工作节点)
+
+所有操作用root用户
+
+== 安装wget
+[source,bash]
+----
+yum install wget
+----
+
+== 下载安装elasticsearch
+[source,bash]
+----
+wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.1.rpm
+rpm -install elasticsearch-5.5.1.rpm
+----
+
+== 安装JDK1.8
+Elasticsearch需要jdk1.7以上支持
+[source,bash]
+----
+yum install java-1.8.0-openjdk  java-1.8.0-openjdk-devel
+----
+
+== 防火墙配置
+防火墙打开9100,9200,9300端口,Elasticsearch-head使用9100端口,该端口不需要在工作节点服务器上打开
+[source,bash]
+----
+firewall-cmd --zone=public --permanent --add-port=9100/tcp
+firewall-cmd --zone=public --permanent --add-port=9200/tcp
+firewall-cmd --zone=public --permanent --add-port=9300/tcp
+service firewalld restart
+----
+[NOTE]
+====
+在两台服务上执行以上操作,工作节点服务器不需要打开9100端口
+====
+
+== 配置集群
+
+=== 主节点集群配置
+
+[source,bash]
+----
+vim /etc/elasticsearch/elasticsearch.yml
+
+cluster.name: lensyn-es # 集群名称
+node.name: node-58 # 节点名称
+node.master: true # 是否主节点
+node.attr.rack: r1
+path.data: /var/lib/elasticsearch # 数据目录,可以配置多个目录,逗号隔开
+path.logs: /var/log/elasticsearch # 日志目录
+network.host: 192.168.1.58 # 主机地址
+http.port: 9200 # http端口
+discovery.zen.ping.unicast.hosts: ["192.168.1.58", "192.168.1.59"] # 服务发现
+discovery.zen.minimum_master_nodes: 1 # 主节点最小值
+# 跨域设置
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+----
+
+其它配置
+[source,bash]
+----
+vim /etc/sysctl.conf
+# 最后加一行
+vm.max_map_count=262144
+----
+
+=== 工作节点集群配置
+
+[source,bash]
+----
+vim /etc/elasticsearch/elasticsearch.yml
+
+cluster.name: lensyn-es # 集群名称
+node.name: node-59 # 节点名称
+node.master: false # 是否主节点
+node.attr.rack: r1
+path.data: /var/lib/elasticsearch # 数据目录,可以配置多个目录,逗号隔开
+path.logs: /var/log/elasticsearch # 日志目录
+network.host: 192.168.1.59 # 主机地址
+http.port: 9200 # http端口
+discovery.zen.ping.unicast.hosts: ["192.168.1.58", "192.168.1.59"] # 服务发现
+discovery.zen.minimum_master_nodes: 1 # 主节点最小值
+# 跨域设置
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+----
+
+其它配置
+[source,bash]
+----
+vim /etc/sysctl.conf
+# 最后加一行
+vm.max_map_count=262144
+----
+
+== 启动Elasticsearch
+在两台服务器上启动
+[source,bash]
+----
+service elasticsearch start
+----
+可在日志目录中查看日志信息
+
+其它命令
+[source,bash]
+----
+service elasticsearch restart # 重启
+service elasticsearch stop # 停止
+----
+
+== elasticsearch-head安装
+elasticsearch管理工具,安装在哪无所谓,安装到PC机都行,这里安装在主节点服务器上
+
+=== 下载es-head源代码
+[source,bash]
+----
+git clone git://github.com/mobz/elasticsearch-head.git
+mv elasticsearch-head /var/local/es-head
+----
+
+=== 下载nodejs
+[source,bash]
+----
+wget https://npm.taobao.org/mirrors/node/v8.0.0/node-v8.0.0-linux-x64.tar.xz
+----
+
+=== 解压并调整目录名称和位置
+[source,bash]
+----
+tar -xvf  node-v8.0.0-linux-x64.tar.xz
+mv node-v8.0.0-linux-x64 /var/local/node-v8
+-----
+
+=== 修改系统环境变量(重要)
+[source,bash]
+----
+vim /etc/profile
+export PATH=/var/local/node-v8/bin:$PATH
+----
+
+=== npm安装es-head
+注意:有个SPDX授权,按这个解决 http://www.cnblogs.com/shengulong/p/6224908.html[SPDX授权]
+[source,bash]
+----
+cd /var/local/es-head
+npm install
+----
+
+=== 启动与访问
+启动: npm run start
+浏览器访问: http://192.168.1.58:9100/
+
+== 结束
+
+
+
