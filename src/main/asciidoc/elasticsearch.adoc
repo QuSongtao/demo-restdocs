@@ -153,13 +153,20 @@ wget https://npm.taobao.org/mirrors/node/v8.0.0/node-v8.0.0-linux-x64.tar.xz
 ----
 tar -xvf  node-v8.0.0-linux-x64.tar.xz
 mv node-v8.0.0-linux-x64 /var/local/node-v8
------
+----
 
 === 修改系统环境变量(重要)
 [source,bash]
 ----
 vim /etc/profile
+#最后一行加上
 export PATH=/var/local/node-v8/bin:$PATH
+----
+
+刷新生效
+[source,bash]
+----
+source /etc/profile
 ----
 
 === npm安装es-head
@@ -171,8 +178,13 @@ npm install
 ----
 
 === 启动与访问
+在/var/local/es-head目录下
+
 启动: npm run start
+
 浏览器访问: http://192.168.1.58:9100/
+
+可查看集群信息,节点信息,索引信息等
 
 == 结束
 
