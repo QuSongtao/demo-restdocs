@@ -23,27 +23,29 @@ v1.0.0
 
 所有操作用root用户
 
-== 安装wget
+== 基础软件安装与配置
+
+=== 安装wget
 [source,bash]
 ----
 yum install wget
 ----
 
-== 下载安装elasticsearch
-[source,bash]
-----
-wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.1.rpm
-rpm -install elasticsearch-5.5.1.rpm
-----
-
-== 安装JDK1.8
+=== 安装JDK1.8
 Elasticsearch需要jdk1.7以上支持
 [source,bash]
 ----
 yum install java-1.8.0-openjdk  java-1.8.0-openjdk-devel
 ----
 
-== 防火墙配置
+=== 安装Elasticsearch
+[source,bash]
+----
+wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.1.rpm
+rpm -install elasticsearch-5.5.1.rpm
+----
+
+=== 防火墙配置
 防火墙打开9100,9200,9300端口,Elasticsearch-head使用9100端口,该端口不需要在工作节点服务器上打开
 [source,bash]
 ----
@@ -117,7 +119,7 @@ vim /etc/sysctl.conf
 vm.max_map_count=262144
 ----
 
-== 启动Elasticsearch
+=== 启动Elasticsearch
 在两台服务器上启动
 [source,bash]
 ----
