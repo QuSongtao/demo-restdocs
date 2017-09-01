@@ -43,6 +43,12 @@ Zookeeper、zkui、redis、kafka、RabbitMQ、nginx的安装和配置手册，�
 
 |link:nginx.html[nginx安装与配置]
 |nginx安装与配置
+
+|link:elasticsearch.html[elasticsearch集群安装与配置]
+|elasticsearch集群安装与配置
+
+|link:oss.html[对象存储配置与使用手册]
+|对象存储配置与使用手册
 |===
 
 == 应用API手册
