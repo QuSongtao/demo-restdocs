@@ -1,0 +1,144 @@
+= haproxy安装和配置
+Qu Songtao;
+v1.0.0
+:lang: zh-cmn-Hans
+:doctype: book
+:description: haproxy安装和配置
+:icons: font
+:source-highlighter: highlightjs
+:linkcss!:
+:numbered:
+:idprefix:
+:toc: left
+:toc-title: 导航目录
+:toclevels: 3
+:experimental:
+
+== 下载安装gcc
+[source,bash]
+----
+yum -y install gcc
+----
+
+== 下载haproxy1.8
+[source,bash]
+----
+wget https://www.haproxy.org/download/1.8/src/haproxy-1.8.0.tar.gz
+----
+
+== 解压安装haproxy
+[source,bash]
+----
+tar xf haproxy-1.8.0.tar.gz
+cd haproxy-1.8.0
+make TARGET=linux2628 PREFIX=/usr/local/haproxy
+make install PREFIX=/usr/local/haproxy
+----
+
+== 复制haproxy文件到/usr/sbin下
+
+因为haproxy.init启动脚本默认会去/usr/sbin下找(当然你也可以修改，不过比较麻烦。)
+[source,bash]
+----
+cp /usr/local/haproxy/sbin/haproxy /usr/sbin/
+----
+
+== 复制haproxy脚本，到/etc/init.d下
+[source,bash]
+----
+cp ./examples/haproxy.init /etc/init.d/haproxy
+chmod 755 /etc/init.d/haproxy
+----
+
+== 创建系统账号
+[source,bash]
+----
+useradd -r haproxy
+----
+
+== 创建配置文件
+[source,bash]
+----
+   mkdir /etc/haproxy
+   vim /etc/haproxy/haproxy.cfg
+
+   #全局配置
+   global
+       #设置日志
+       log 127.0.0.1 local3 info
+       chroot /usr/local/haproxy
+       #用户与用户组
+       user haproxy
+       group haproxy
+       #守护进程启动
+       daemon
+       #最大连接数
+       maxconn 4000
+
+   #默认配置
+   defaults
+       log global
+       mode http
+       option httplog
+       option dontlognull
+       timeout connect 5000
+       timeout client 50000
+       timeout server 50000
+
+   #前端配置，http_front名称可自定义
+   frontend http_front
+       bind *:80
+       #haproxy的状态管理页面，通过/haproxy?stats来访问
+       stats uri /haproxy?stats
+       default_backend http_back
+
+   #后端配置，http_back名称可自定义
+   backend http_back
+       #负载均衡方式
+       #source 根据请求源IP
+       #static-rr 根据权重
+       #leastconn 最少连接者先处理
+       #uri 根据请求的uri
+       #url_param 根据请求的url参数
+       #rdp-cookie 据据cookie(name)来锁定并哈希每一次请求
+       #hdr(name) 根据HTTP请求头来锁定每一次HTTP请求
+       #roundrobin 轮询方式
+       balance roundrobin
+       #设置健康检查页面
+       option httpchk GET /index.html
+       #传递客户端真实IP
+       option forwardfor header X-Forwarded-For
+       # inter 2000 健康检查时间间隔2秒
+       # rise 3 检测多少次才认为是正常的
+       # fall 3 失败多少次才认为是不可用的
+       # weight 30 权重
+       server node1 192.168.2.131:80 check inter 2000 rise 3 fall 3 weight 30
+       server node2 192.168.1.63:80 check inter 2000 rise 3 fall 3 weight 30
+----
+
+== 打开rsyslog配置
+[source,bash]
+----
+   vim /etc/rsyslog.conf
+----
+
+[source,bash]
+----
+   # 去掉下面两行前面的#号
+   $ModLoad imudp
+   $UDPServerRun514
+   # 并添加下面一行
+   local3.* /var/log/haproxy.log
+----
+
+== 重启rsyslog
+[source,bash]
+----
+systemctl restart rsyslog
+----
+
+== 启动haproxy
+[source,bash]
+----
+/etc/init.d/haproxy start
+----
